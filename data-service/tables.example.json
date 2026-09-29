@@ -1,0 +1,10 @@
+{
+  "tables": {
+    "orders": "s3://my-bucket/lake/orders",
+    "customers": "abfss://container@myaccount.dfs.core.windows.net/lake/customers",
+    "events": "/absolute/path/to/local/events"
+  },
+  "storage_options": {
+    "AWS_REGION": "us-east-1"
+  }
+}

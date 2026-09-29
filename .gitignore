@@ -1,0 +1,70 @@
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv/
+venv/
+ENV/
+env/
+
+# Virtual environments
+.python-version
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Notebooks (optional: remove to track .ipynb files)
+# Leave this commented if you want to commit notebook source
+
+# Node.js
+node_modules/
+package-lock.json
+npm-debug.log
+yarn-error.log
+
+# Azure Functions
+local.settings.json
+
+# Data
+etl/data/raw/*.csv
+etl/data/clean/*.csv
+data-service/tables.json
+
+# Lock files (keep uv.lock, exclude node_modules lock variants)
+# uv.lock is committed; node package-lock is in .gitignore above
+
+# Logs
+*.log
+logs/

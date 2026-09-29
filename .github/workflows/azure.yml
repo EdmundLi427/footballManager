@@ -1,0 +1,29 @@
+name: azure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "azure/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "azure/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: cd azure && npm ci
+
+      - name: Run tests
+        run: cd azure && npm test

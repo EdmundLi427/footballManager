@@ -1,0 +1,22 @@
+[project]
+name = "data-service"
+version = "0.1.0"
+description = "MCP server giving Claude read-only SQL access to Delta Lake tables"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]",
+    "deltalake>=1.0",
+    "duckdb>=1.1",
+    "pyarrow",
+    "python-dotenv",
+    "pytz",
+]
+
+[tool.uv]
+workspace-member = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/data_service"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
