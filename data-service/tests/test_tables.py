@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Test each table individually to find which ones exist."""
 
 import json

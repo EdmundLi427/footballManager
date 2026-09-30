@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Check which tables use unsupported Delta features."""
 
 import json

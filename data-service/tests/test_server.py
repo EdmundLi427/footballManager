@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
 """Test script for Delta Lake MCP server without needing mcp dev."""
 
 import json
+import sys
 
 from dotenv import load_dotenv
 from server import describe_table, list_tables, query, table_history
@@ -73,4 +73,4 @@ def test_server():
 
 if __name__ == "__main__":
     success = test_server()
-    exit(0 if success else 1)
+    sys.exit(0 if success else 1)
