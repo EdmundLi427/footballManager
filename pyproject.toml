@@ -1,2 +1,9 @@
+[project]
+dependencies = [
+    "pandas",
+    "requests",
+    "pytz",
+]
+
 [tool.uv.workspace]
 members = ["data-service", "webapp"]
