@@ -11,10 +11,9 @@ Usage:
 
 import json
 import os
-from typing import Optional
 
 import anthropic
-from data_service.server import list_tables, describe_table, table_history, query
+from data_service.server import describe_table, list_tables, query, table_history
 
 
 class Chatbot:
@@ -23,6 +22,7 @@ class Chatbot:
     def __init__(self):
         """Initialize the chatbot."""
         from dotenv import load_dotenv
+
         load_dotenv()
 
         self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -96,7 +96,6 @@ class Chatbot:
             },
         ]
 
-
     def add_user_message(self, content: str) -> None:
         """Add a user message to the chat history."""
         self.messages.append({"role": "user", "content": content})
@@ -128,7 +127,7 @@ class Chatbot:
             else:
                 result = json.dumps({"error": f"Unknown tool: {tool_name}"})
             return result
-        except Exception as e:
+        except (ValueError, KeyError, RuntimeError) as e:
             return json.dumps({"error": str(e)})
 
     def chat(self, user_message: str) -> str:
@@ -154,9 +153,7 @@ class Chatbot:
             if response.stop_reason == "end_turn":
                 # Extract final text response
                 final_response = "".join(
-                    block.text
-                    for block in response.content
-                    if hasattr(block, "text")
+                    block.text for block in response.content if hasattr(block, "text")
                 )
                 self.add_assistant_message(final_response)
                 return final_response
@@ -206,7 +203,9 @@ if __name__ == "__main__":
     bot = Chatbot()
 
     print("Football Manager Chatbot")
-    print("Type 'quit' to exit, 'clear' to clear history, 'history' to see conversation\n")
+    print(
+        "Type 'quit' to exit, 'clear' to clear history, 'history' to see conversation\n"
+    )
 
     while True:
         try:

@@ -19,5 +19,5 @@ def test_app_creates():
 def test_index_route_exists():
     """Test that the index route is registered."""
     with app.test_client() as client:
-        response = client.get('/')
+        response = client.get("/")
         assert response.status_code == 200
