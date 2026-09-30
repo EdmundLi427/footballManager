@@ -20,3 +20,6 @@ packages = ["src/data_service"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: marks tests as integration tests requiring Azure credentials (deselect with '-m \"not integration\"')",
+]
