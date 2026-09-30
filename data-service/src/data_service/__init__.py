@@ -1,5 +1,5 @@
 """Data service for querying Delta Lake tables via MCP."""
 
-from .server import list_tables, describe_table, table_history, query
+from .server import describe_table, list_tables, query, table_history
 
-__all__ = ["list_tables", "describe_table", "table_history", "query"]
+__all__ = ["describe_table", "list_tables", "query", "table_history"]

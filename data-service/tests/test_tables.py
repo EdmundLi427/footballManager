@@ -4,8 +4,9 @@
 import json
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+
 from deltalake import DeltaTable
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -34,7 +35,7 @@ for name, path in tables.items():
         dt = DeltaTable(path, storage_options=storage_options)
         print(f"✅ {name:20} v{dt.version()}")
         working.append(name)
-    except Exception as e:
+    except (FileNotFoundError, ValueError, OSError) as e:
         print(f"❌ {name:20} {str(e)[:50]}")
         broken.append(name)
 

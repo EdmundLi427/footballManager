@@ -2,9 +2,9 @@
 """Test script for Delta Lake MCP server without needing mcp dev."""
 
 import json
-from pathlib import Path
-from server import list_tables, describe_table, query, table_history
+
 from dotenv import load_dotenv
+from server import describe_table, list_tables, query, table_history
 
 load_dotenv()
 
@@ -63,7 +63,7 @@ def test_server():
         print(f"\n❌ Error: {e}")
         print("   Make sure you've created tables.json (copy from tables.example.json)")
         return False
-    except Exception as e:
+    except (ValueError, OSError, KeyError) as e:
         print(f"\n❌ Error: {e}")
         import traceback
 

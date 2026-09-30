@@ -4,8 +4,9 @@
 import json
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+
 from deltalake import DeltaTable
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -29,7 +30,7 @@ for name, path in tables.items():
         dt = DeltaTable(path, storage_options=storage_options)
         dt.to_pyarrow_dataset()  # This will fail if unsupported features exist
         print(f"✅ {name:20} OK")
-    except Exception as e:
+    except (FileNotFoundError, ValueError, OSError) as e:
         error = str(e)
         print(f"❌ {name:20} {error[:50]}")
 
