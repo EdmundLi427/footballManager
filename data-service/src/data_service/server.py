@@ -28,7 +28,9 @@ from typing import Any
 import duckdb
 from deltalake import DeltaTable
 
-CONFIG_PATH = Path(os.environ.get("DELTA_TABLES_CONFIG", Path(__file__).with_name("tables.json")))
+CONFIG_PATH = Path(
+    os.environ.get("DELTA_TABLES_CONFIG", Path(__file__).with_name("tables.json"))
+)
 MAX_ROWS_CAP = int(os.environ.get("DELTA_MAX_ROWS", "1000"))
 NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 READ_ONLY_TYPES = {"SELECT", "EXPLAIN"}  # DESCRIBE/SUMMARIZE/SHOW parse as SELECT
@@ -55,14 +57,18 @@ class Lake:
             raise ValueError(f"No tables defined in {config_path}")
         for name in self.paths:
             if not NAME_RE.match(name):
-                raise ValueError(f"Invalid table name {name!r}: use letters, digits, underscores")
+                raise ValueError(
+                    f"Invalid table name {name!r}: use letters, digits, underscores"
+                )
         # Passed to delta-rs; leave empty to use env vars / default credential chains.
         self.storage_options: dict[str, str] = cfg.get("storage_options", {})
 
         # Parse Azure connection string from env if present
         conn_str = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", "")
         if conn_str:
-            parts = {p.split("=", 1)[0]: p.split("=", 1)[1] for p in conn_str.split(";")}
+            parts = {
+                p.split("=", 1)[0]: p.split("=", 1)[1] for p in conn_str.split(";")
+            }
             if "AccountName" in parts:
                 self.storage_options["account_name"] = parts["AccountName"]
             if "AccountKey" in parts:
@@ -81,7 +87,9 @@ class Lake:
 
     def table(self, name: str) -> DeltaTable:
         if name not in self.tables:
-            raise ValueError(f"Unknown table {name!r}. Available: {', '.join(self.tables)}")
+            raise ValueError(
+                f"Unknown table {name!r}. Available: {', '.join(self.tables)}"
+            )
         return self.tables[name]
 
     def refresh(self) -> None:
@@ -113,7 +121,9 @@ def _check_read_only(sql: str) -> None:
     if len(stmts) != 1:
         raise ValueError("Send exactly one SQL statement.")
     if stmts[0].type.name not in READ_ONLY_TYPES:
-        raise ValueError(f"Only read-only queries are allowed (got {stmts[0].type.name}).")
+        raise ValueError(
+            f"Only read-only queries are allowed (got {stmts[0].type.name})."
+        )
 
 
 def _mcp_tool(func):
@@ -121,6 +131,7 @@ def _mcp_tool(func):
     if mcp:
         return mcp.tool()(func)
     return func
+
 
 @_mcp_tool
 def list_tables() -> str:
@@ -140,15 +151,19 @@ def describe_table(table: str) -> str:
         lk.refresh()
         cols = lk.con.execute(f"DESCRIBE {table}").fetchall()
     meta = dt.metadata()
-    return _to_json({
-        "table": table,
-        "path": lk.paths[table],
-        "version": dt.version(),
-        "description": meta.description,
-        "partition_columns": meta.partition_columns,
-        "num_files": len(dt.file_uris()),
-        "columns": [{"name": c[0], "type": c[1], "nullable": c[2] == "YES"} for c in cols],
-    })
+    return _to_json(
+        {
+            "table": table,
+            "path": lk.paths[table],
+            "version": dt.version(),
+            "description": meta.description,
+            "partition_columns": meta.partition_columns,
+            "num_files": len(dt.file_uris()),
+            "columns": [
+                {"name": c[0], "type": c[1], "nullable": c[2] == "YES"} for c in cols
+            ],
+        }
+    )
 
 
 @_mcp_tool
@@ -178,12 +193,14 @@ def query(sql: str, max_rows: int = 200) -> str:
         columns = rel.columns
         rows = rel.limit(max_rows + 1).fetchall()
     truncated = len(rows) > max_rows
-    return _to_json({
-        "columns": columns,
-        "rows": [list(r) for r in rows[:max_rows]],
-        "row_count": min(len(rows), max_rows),
-        "truncated": truncated,
-    })
+    return _to_json(
+        {
+            "columns": columns,
+            "rows": [list(r) for r in rows[:max_rows]],
+            "row_count": min(len(rows), max_rows),
+            "truncated": truncated,
+        }
+    )
 
 
 if __name__ == "__main__":

@@ -7,6 +7,8 @@ from server import list_tables, describe_table, query, table_history
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
 def test_server():
     print("=" * 60)
     print("Testing Delta Lake MCP Server")
@@ -24,7 +26,7 @@ def test_server():
             print("   ⚠️  No tables defined. Create tables.json with sample data.")
             return False
 
-        table_name = tables[0]['table']
+        table_name = tables[0]["table"]
         print(f"\n2. Describing table '{table_name}'...")
         result = describe_table(table_name)
         desc = json.loads(result)
@@ -40,7 +42,7 @@ def test_server():
         print(f"   Rows returned: {qry['row_count']}")
         print(f"   Truncated: {qry['truncated']}")
 
-        if qry['rows']:
+        if qry["rows"]:
             print(f"   First row: {qry['rows'][0]}")
 
         print(f"\n4. Table history for '{table_name}'...")
@@ -48,7 +50,9 @@ def test_server():
         hist = json.loads(result)
         print(f"   Latest {len(hist)} commit(s):")
         for i, commit in enumerate(hist[:3], 1):
-            print(f"   {i}. {commit.get('operation', 'unknown')} @ v{commit.get('version', '?')}")
+            print(
+                f"   {i}. {commit.get('operation', 'unknown')} @ v{commit.get('version', '?')}"
+            )
 
         print("\n" + "=" * 60)
         print("✅ Server is working!")
@@ -62,8 +66,10 @@ def test_server():
     except Exception as e:
         print(f"\n❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     success = test_server()
