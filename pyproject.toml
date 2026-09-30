@@ -1,13 +1,9 @@
-[project]
-name = "football-manager"
-version = "0.1.0"
-description = "NFL fantasy football data management"
-requires-python = ">=3.10"
-dependencies = [
+[tool.uv.workspace]
+members = ["data-service", "webapp"]
+
+[dependency-groups]
+shared = [
     "pandas",
     "requests",
     "pytz",
 ]
-
-[tool.uv.workspace]
-members = ["data-service", "webapp"]
