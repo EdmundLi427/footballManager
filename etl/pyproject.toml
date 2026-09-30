@@ -1,0 +1,13 @@
+[project]
+name = "etl"
+version = "0.1.0"
+description = "Data cleaning and ingestion notebooks for NFL league data"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas",
+    "requests",
+    "pytz",
+]
+
+[tool.uv]
+workspace-member = false
