@@ -30,6 +30,10 @@ venv/
 ENV/
 env/
 
+# Exception: azure/src/lib/ and azure/test/lib/ are project source files
+!azure/src/lib/
+!azure/test/lib/
+
 # Virtual environments
 .python-version
 

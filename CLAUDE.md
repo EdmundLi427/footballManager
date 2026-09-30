@@ -20,30 +20,62 @@ Each module is independent with its own dependencies and configuration except `e
 
 ## Module: azure/ (Azure Functions)
 
-**Purpose**: Scheduled worker that fetches NFL injury news from FantasyPros API every 6 hours and stores JSON snapshots to Azure Blob Storage.
+**Purpose**: Scheduled workers that ingest NFL data from two sources:
+1. **FantasyPros Injury News** – fetches every 6 hours, stores to blob path `injury/...`
+2. **ESPN Game/Team/Player Data** – three independent timers by volatility tier: teams+players (daily), standings+rosters (daily), schedules+games+game-team-stats (every 6 hours), each writing to a sibling path (`teams/`, `schedules/`, etc.) in the same container.
+
+All data lands in one Azure Blob Storage container (deployed as `alsource`, organized by top-level path prefix) as raw JSON snapshots.
 
 **Dev**:
 - `npm start` – runs `func start` (local Azure Functions runtime)
-- `npm test` – placeholder only (`echo "No tests yet..."`); there is no real test suite
+- `npm test` – `node --test test/` (fixture-based unit tests, no network access)
 
 **Key files**:
-- `src/functions/newsTrigger.js` – timer trigger handler (cron: `0 0 */6 * * *`, every 6 hours)
-  - Fetches `https://api.fantasypros.com/public/v2/json/nfl/news?category=injury&pageIndex=1`
-  - Parses JSON response, uploads to blob path `injury/YYYY-MM-DD/ISO-timestamp.json`
-  - Logs structured summaries (`[FETCH_START]`, `[API_CALL]`, `[UPLOAD_SUCCESS]`, etc.)
-  - Throws errors on API/upload failure (does not swallow)
-  - This is the file `databricks/notebooks/ingest_news_data.ipynb` reads from (via the `injury/` blob path)
-- `src/functions/gameDataTrigger.js` – **currently untracked/WIP and buggy**: its timer name has a typo (`fetchGmaeNews`) and its handler body is a copy-paste of `newsTrigger.js` (fetches the same injury endpoint, writes to the same `injury/` path) despite the name suggesting it should fetch game data. Don't treat it as a working "game data" fetcher until it's actually rewritten.
+- `src/functions/newsTrigger.js` – FantasyPros injury news, every 6h (cron: `0 0 */6 * * *`)
+  - Uses shared `gameDataStorage.js` helper module (reused by all 3 new functions)
+- `src/functions/teamsPlayersTrigger.js` – ESPN teams + players (season/bio-level), daily at 06:15 UTC
+  - Teams: 1 API call, ~32 records
+  - Players: paginated, current season only (current-year athlete index)
+- `src/functions/standingsRostersTrigger.js` – ESPN standings + rosters (weekly-level), daily at 08:30 UTC
+  - Standings: 1 API call, deduped by team/season
+  - Rosters: 32 parallel calls (one per team), bounded concurrency (default 5)
+  - Partial-failure handling: uploads what succeeded if ≥1 roster call fails
+- `src/functions/gameDataTrigger.js` – ESPN schedules + games + game-team-stats (per-game-level), every 6h
+  - Schedules: 32 parallel calls, deduped by `game_id`
+  - Target-games filter: selects only `completed === false` OR recently-completed (trailing 3 days) games to avoid re-fetching ancient data
+  - Games + game-team-stats: parallel fetch of target game summaries, plucks header/boxscore per game
+  - Partial-failure handling: uploads what succeeded; fails only if all datasets completely failed
+- `src/lib/espnClient.js` – shared retry/concurrency/season helpers
+  - `getCurrentSeasonYear()` – stateless NFL season year resolver
+  - `fetchWithRetry()` – retry with linear backoff
+  - `mapWithConcurrency()` – bounded-concurrency batching (no new dependency)
+  - `paginateEspnEndpoint()` – handles ESPN's pageCount pagination
+- `src/lib/espnAssemble.js` – pure data transformation functions (fixture-testable)
+  - `dedupeSchedulesByGameId()` – game deduplication across team schedules
+  - `pluckGameHeader()` / `pluckBoxscoreTeamStats()` – JSON plucking from `/summary` responses
+  - `selectTargetGames()` – filters schedule to in-progress/recently-completed games
+- `src/lib/gameDataStorage.js` – shared blob upload helpers (retry-free wrapper around SDK)
+  - `buildBlobName()` – path construction (`{prefix}/{YYYY-MM-DD}/{ISO-timestamp}.json`)
+  - `uploadJsonBlob()` – container-initialized upload with proper content-type headers
+  - `getStorageInfo()` – logging helper
 - `package.json` – dependencies: `@azure/functions`, `@azure/storage-blob`
-- `host.json` – Azure Functions runtime config
-- `local.settings.json` – local dev env (gitignored; contains real API credentials — never commit or `git add -f` this file)
+- `host.json` – Azure Functions v2.0 runtime config
+- `local.settings.json` – local dev env (gitignored; contains real API credentials — never commit)
+- `.env.example` – new; documents all env vars (existing + new ESPN-related ones)
+- `test/lib/espnClient.test.js`, `test/lib/espnAssemble.test.js`, `test/lib/gameDataStorage.test.js` – fixture-driven unit tests
 
-**Environment variables** (set in `local.settings.json` locally; no `.env.example` template exists yet):
-- `FANTASY_PRO_API_KEY` – FantasyPros API key (required)
+**Environment variables** (set in `local.settings.json` locally or `.env`):
+- `FANTASY_PRO_API_KEY` – FantasyPros API key (required for news)
 - `NEWS_STORAGE_CONNECTION` – Azure Storage connection string (defaults to `AzureWebJobsStorage` if unset)
-- `NEWS_CONTAINER` – Blob container name (defaults to `nfl-news`)
+- `ALSOURCE_CONTAINER` – Blob container name (defaults to `alsource`; holds all datasets: `injury/`, `teams/`, etc.)
+- `ESPN_FETCH_CONCURRENCY` – max in-flight ESPN calls (default 5)
+- `ESPN_FETCH_RETRIES` – retry attempts per call (default 3)
+- `GAME_SUMMARY_TRAILING_DAYS` – look-back window for recently-completed games (default 3)
+- `GAME_SUMMARY_MAX_TARGETS` – safety ceiling on per-run game-summary fetches (default 50)
 
-**Convention**: Timer trigger = "every 6 hours" by default unless context says otherwise.
+**Logging**: All functions log via bracketed tags (`[FETCH_START]`, `[API_CALL]`, `[DATA_PARSED]`, `[UPLOAD_START]`, `[UPLOAD_SUCCESS]`, `[STORAGE_INFO]`, `[SUMMARY]`, `[ERROR]`, `[ITEM_ERROR]`, `[DATASET_SUMMARY]`, `[TARGET_GAMES]`). Each invocation returns a `summary` object with per-dataset status, byte counts, and failure accounting.
+
+**Convention**: Timer triggers all use NCronTab 6-field syntax. Tier 1/2 daily, Tier 3 every-6-hours (matching project default). All functions throw on fatal errors (never swallow); partial failures are logged/counted in summary but don't fail the invocation unless all datasets are 100% failed.
 
 ## Module: data-service/ (Delta Lake MCP Server)
 

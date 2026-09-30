@@ -4,7 +4,7 @@
   "description": "",
   "scripts": {
     "start": "func start",
-    "test": "echo \"No tests yet...\""
+    "test": "node --test test/lib/**/*.test.js"
   },
   "dependencies": {
     "@azure/functions": "^4.0.0",

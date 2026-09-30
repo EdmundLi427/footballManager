@@ -15,40 +15,54 @@ Data flows through:
 ## Architecture
 
 ```
-                ┌──────────────────┐
-                │    FantasyPros   │
-                │      API         │
-                └────────┬─────────┘
+   ┌──────────────────┐      ┌──────────────────┐
+   │    FantasyPros   │      │      ESPN        │
+   │      API         │      │      API         │
+   │  (Injury News)   │      │ (Games/Teams)    │
+   └────────┬─────────┘      └────────┬─────────┘
+            │                         │
+       (6-hourly)        (6h, daily depending on tier)
+            │                         │
+            └────────────┬────────────┘
                          │
-                    (6-hourly)
+   ┌─────────────────────▼──────────────────────┐
+   │        Azure Blob Storage                  │
+   │  ├─ injury/... (FantasyPros news)         │
+   │  ├─ teams/, players/ (season-level)       │
+   │  ├─ standings/, rosters/ (weekly-level)   │
+   │  └─ schedules/, games/, game-team-stats/  │
+   │     (per-game-level)                      │
+   └─────────────────────┬──────────────────────┘
                          │
-        ┌────────────────┴────────────────┐
-        │                                 │
-   ┌────▼────────┐         ┌─────────────▼──────────┐
-   │   Raw Data  │         │  Azure Blob Storage    │
-   │   (CSVs)    │         │   (Injury News JSON)   │
-   └────┬────────┘         └──────────────────────────┘
-        │
-        │ (ETL notebooks)
-        │
-   ┌────▼──────────────┐
-   │   Delta Lake      │
-   │  (cleaned data)   │
-   └────┬──────────────┘
-        │
-        ├─────────────────────────┬──────────────────┐
-        │                         │                  │
-   ┌────▼─────────────┐    ┌─────▼──────┐    ┌─────▼──────────┐
-   │  Data Service    │    │   Web App  │    │   (CLI Chat)   │
-   │  (MCP / SQL)     │    │ (Flask UI) │    │   (dev-only)   │
-   └──────────────────┘    └────────────┘    └────────────────┘
+   ┌─────────────────────┴──────────────────────┐
+   │   Raw Data (CSVs from etl/)               │
+   └─────────────────────┬──────────────────────┘
+                         │
+                  (ETL/Databricks)
+                         │
+                ┌────────▼──────────┐
+                │   Delta Lake      │
+                │  (cleaned data)   │
+                └────────┬──────────┘
+                         │
+        ┌────────────────┼────────────────┐
+        │                │                │
+   ┌────▼─────────────┐  │  ┌─────▼──────┐    ┌─────▼──────────┐
+   │  Data Service    │  │  │   Web App  │    │   (CLI Chat)   │
+   │  (MCP / SQL)     │  │  │ (Flask UI) │    │   (dev-only)   │
+   └──────────────────┘  │  └────────────┘    └────────────────┘
+                         │
+                    (future)
+                    Delta Lake
+                    Loader from
+                    Blob Storage
 ```
 
 ## Modules
 
 | Module | Purpose | Tech Stack |
 |--------|---------|-----------|
-| **`azure/`** | Scheduled job: fetches injury news every 6 hours from FantasyPros API, stores JSON to Azure Blob Storage | Node.js (v4 Azure Functions), FantasyPros API |
+| **`azure/`** | Scheduled jobs: (1) fetches injury news every 6h from FantasyPros API; (2) fetches ESPN game/team/player data on three independent cadences (daily for season-level, every 6h for game-level). All data stored as raw JSON to Azure Blob Storage under separate path prefixes. | Node.js (v4 Azure Functions), FantasyPros API, ESPN unofficial API |
 | **`data-service/`** | Query layer: MCP server providing read-only SQL access to Delta Lake tables via DuckDB | Python 3.10+, MCP, Delta Lake, DuckDB |
 | **`etl/`** | Batch pipelines: ingests raw NFL data, cleans and standardizes (snake_case, nulls, dedupe), outputs to Delta Lake | Python 3.10+, Jupyter notebooks, Pandas |
 | **`webapp/`** | Web chat UI: Flask server with Claude-powered natural-language interface to query NFL data | Python 3.10+, Flask, Anthropic API, Claude |
@@ -123,7 +137,7 @@ cd azure && npm test
 
 ## Testing
 
-- **`azure/`** — `npm test` (stub; add real tests for FantasyPros calls and Blob uploads)
+- **`azure/`** — `npm test` (fixture-based unit tests for ESPN API clients, data assembly, and blob naming)
 - **`data-service/`** — `uv run --directory data-service pytest`
 - **`etl/`** — `python etl/tests/test_clean.py` (validates output from `dataClean.ipynb`)
 - **`webapp/`** — `uv run --directory webapp pytest`

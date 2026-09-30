@@ -4,7 +4,7 @@ const { BlobServiceClient } = require('@azure/storage-blob');
 const blobService = BlobServiceClient.fromConnectionString(
   process.env.NEWS_STORAGE_CONNECTION || process.env.AzureWebJobsStorage
 );
-const container = blobService.getContainerClient(process.env.NEWS_CONTAINER || 'nfl-news');
+const container = blobService.getContainerClient(process.env.ALSOURCE_CONTAINER || 'alsource');
 
 app.timer('fetchInjuryNews', {
   schedule: '0 0 */6 * * *',
