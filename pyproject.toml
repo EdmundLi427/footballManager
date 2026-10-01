@@ -11,3 +11,12 @@ dev = [
     "ruff",
     "pytest",
 ]
+databricks = [
+    "pyspark>=3.5.0",
+    "delta-spark>=3.1.0",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "spark: marks tests that require PySpark and Java (skip if Java not available)",
+]

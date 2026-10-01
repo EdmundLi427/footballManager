@@ -124,6 +124,29 @@ test('pluckBoxscoreTeamStats', async (t) => {
     assert.strictEqual(result.length, 1);
     assert.strictEqual(result[0].teamId, '1');
   });
+
+  await t.test('includes gameId in team stats records', () => {
+    const summaryData = {
+      boxscore: {
+        teams: [
+          {
+            team: { id: '12', displayName: 'Kansas City Chiefs', abbreviation: 'KC' },
+            statistics: [{ name: 'firstDowns', value: 28, displayValue: '28' }],
+          },
+          {
+            team: { id: '25', displayName: 'Detroit Lions', abbreviation: 'DET' },
+            statistics: [{ name: 'firstDowns', value: 22, displayValue: '22' }],
+          },
+        ],
+      },
+    };
+
+    const gameId = 'game_401547439';
+    const result = pluckBoxscoreTeamStats(summaryData, gameId);
+    assert.strictEqual(result.length, 2);
+    assert.strictEqual(result[0].gameId, gameId);
+    assert.strictEqual(result[1].gameId, gameId);
+  });
 });
 
 test('selectTargetGames', async (t) => {

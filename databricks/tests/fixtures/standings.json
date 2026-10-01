@@ -1,0 +1,28 @@
+[
+  {
+    "teamId": "12",
+    "teamName": "Kansas City Chiefs",
+    "season": 2026,
+    "conference": "AFC",
+    "division": "West",
+    "wins": 4,
+    "losses": 0,
+    "ties": 0,
+    "pct": 1.0,
+    "pointsFor": 128,
+    "pointsAgainst": 92
+  },
+  {
+    "teamId": "25",
+    "teamName": "Detroit Lions",
+    "season": 2026,
+    "conference": "NFC",
+    "division": "North",
+    "wins": 3,
+    "losses": 1,
+    "ties": 0,
+    "pct": 0.75,
+    "pointsFor": 115,
+    "pointsAgainst": 101
+  }
+]

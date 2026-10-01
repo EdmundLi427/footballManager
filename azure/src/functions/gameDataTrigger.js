@@ -112,7 +112,7 @@ app.timer('fetchGameData', {
           const summaryData = await summaryResp.json();
 
           const gameHeader = pluckGameHeader(summaryData, gameId);
-          const teamStats = pluckBoxscoreTeamStats(summaryData);
+          const teamStats = pluckBoxscoreTeamStats(summaryData, gameId);
 
           return { gameId, gameHeader, teamStats, error: null };
         } catch (error) {

@@ -1,0 +1,30 @@
+[
+  {
+    "gameId": "game_401547439",
+    "teamId": "12",
+    "teamName": "Kansas City Chiefs",
+    "teamAbbr": "KC",
+    "firstDowns": 28,
+    "firstDowns_display": "28",
+    "totalYards": 412,
+    "totalYards_display": "412",
+    "passingYards": 289,
+    "passingYards_display": "289",
+    "rushingYards": 123,
+    "rushingYards_display": "123"
+  },
+  {
+    "gameId": "game_401547439",
+    "teamId": "25",
+    "teamName": "Detroit Lions",
+    "teamAbbr": "DET",
+    "firstDowns": 22,
+    "firstDowns_display": "22",
+    "totalYards": 356,
+    "totalYards_display": "356",
+    "passingYards": 245,
+    "passingYards_display": "245",
+    "rushingYards": 111,
+    "rushingYards_display": "111"
+  }
+]

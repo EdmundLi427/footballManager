@@ -46,9 +46,10 @@ function pluckGameHeader(summaryData, gameId) {
  * Extracts team-level box score stats from a game summary.
  * Returns an array of two entries (home and away team stats).
  * @param {any} summaryData - The /summary?event={gameId} response
- * @returns {any[]} Array of { team, statistics } objects
+ * @param {string} gameId - The game ID to attach to each team stat record
+ * @returns {any[]} Array of { gameId, teamId, teamName, teamAbbr, ...stats } objects
  */
-function pluckBoxscoreTeamStats(summaryData) {
+function pluckBoxscoreTeamStats(summaryData, gameId) {
   const teams = summaryData.boxscore?.teams || [];
 
   return teams.map((teamData) => {
@@ -63,6 +64,7 @@ function pluckBoxscoreTeamStats(summaryData) {
     }
 
     return {
+      gameId,
       teamId: team.id,
       teamName: team.displayName,
       teamAbbr: team.abbreviation,

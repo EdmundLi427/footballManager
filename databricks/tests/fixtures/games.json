@@ -1,0 +1,20 @@
+[
+  {
+    "id": "game_401547439",
+    "date": "2026-09-13T20:20Z",
+    "status": "Final",
+    "completed": true,
+    "venue": "Arrowhead Stadium",
+    "city": "Kansas City",
+    "attendance": 76414
+  },
+  {
+    "id": "game_401547440",
+    "date": "2026-09-14T23:30Z",
+    "status": "Final",
+    "completed": true,
+    "venue": "Ford Field",
+    "city": "Detroit",
+    "attendance": 62000
+  }
+]

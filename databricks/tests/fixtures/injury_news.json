@@ -1,0 +1,39 @@
+{
+  "sport": "nfl",
+  "title": "NFL Injuries",
+  "description": "NFL Injury Updates",
+  "count": 2,
+  "items": [
+    {
+      "id": 1001,
+      "created": "2026-10-01 10:30:00",
+      "created_formated": "Oct 1, 10:30a",
+      "author": "FantasyPros",
+      "player_id": 12345,
+      "team_id": "KC",
+      "title": "Patrick Mahomes Shoulder",
+      "sport_id": "nfl",
+      "categories": ["injury", "qb"],
+      "link": "https://example.com/injury/1001",
+      "desc": "Patrick Mahomes suffered a shoulder injury during practice",
+      "impact": "Will likely miss next game"
+    },
+    {
+      "id": 1002,
+      "created": "2026-10-01 14:15:00",
+      "created_formated": "Oct 1, 2:15p",
+      "author": "FantasyPros",
+      "player_id": 54321,
+      "team_id": "DET",
+      "title": "Jalen Hurts Ankle",
+      "sport_id": "nfl",
+      "categories": ["injury", "qb"],
+      "link": "https://example.com/injury/1002",
+      "desc": "Jalen Hurts rolled his ankle in yesterday's game",
+      "impact": "Day-to-day"
+    }
+  ],
+  "limit": 10,
+  "public_api_limited": false,
+  "tier": "premium"
+}
