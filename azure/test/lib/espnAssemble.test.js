@@ -60,7 +60,7 @@ test('pluckGameHeader', async (t) => {
       },
     };
 
-    const result = pluckGameHeader(summaryData);
+    const result = pluckGameHeader(summaryData, 'game_401547439');
     assert.strictEqual(result.id, 'game_401547439');
     assert.strictEqual(result.date, '2026-09-13T20:20Z');
     assert.strictEqual(result.status, 'Final');
@@ -72,7 +72,7 @@ test('pluckGameHeader', async (t) => {
 
   await t.test('handles missing fields gracefully', () => {
     const summaryData = { header: {}, gameInfo: {} };
-    const result = pluckGameHeader(summaryData);
+    const result = pluckGameHeader(summaryData, undefined);
     assert.strictEqual(result.id, undefined);
     assert.strictEqual(result.completed, false);
   });
