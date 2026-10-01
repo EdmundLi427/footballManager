@@ -45,7 +45,7 @@ function pluckScheduleFields(event, season) {
 
   return {
     season,
-    id: event.id,
+    game_id: event.id,
     date: competition.date,
     week: event.week?.number,
     home_team_id: homeTeam?.team?.id,
@@ -62,8 +62,7 @@ function pluckScheduleFields(event, season) {
 
 /**
  * Extracts game header/venue metadata from a game summary response.
- * Conforms to the cleaned schema: game_id, venue, game_ts_utc.
- * Note: Attendance is always empty in ESPN data and is dropped.
+ * Conforms to the cleaned schema: game_id, venue, etc.
  *
  * @param {any} summaryData - The /summary?event={gameId} response
  * @param {string} gameId - The game ID (passed explicitly to ensure it's captured)
@@ -74,24 +73,23 @@ function pluckGameHeader(summaryData, gameId) {
   const gameInfo = summaryData.gameInfo;
 
   return {
-    id: gameId,
+    game_id: gameId,
     date: competition?.date,
     venue: gameInfo?.venue?.fullName,
     city: gameInfo?.venue?.address?.city,
     status: competition?.status?.type,
     completed: competition?.status?.type === 'Final',
-    attendance: gameInfo?.attendance,
   };
 }
 
 /**
  * Extracts team-level box score stats from a game summary.
  * Returns an array of two entries (home and away team stats).
- * Conforms to the cleaned schema with all stat columns.
+ * Conforms to the cleaned schema: game_id, team_id, team_name, home_away, ...stats.
  *
  * @param {any} summaryData - The /summary?event={gameId} response
  * @param {string} gameId - The game ID to attach to each team stat record
- * @returns {any[]} Array of { gameId, teamId, teamName, teamAbbr, homeAway, ...stats } objects
+ * @returns {any[]} Array of { game_id, team_id, team_name, team_abbr, home_away, ...stats } objects
  */
 function pluckBoxscoreTeamStats(summaryData, gameId) {
   const teams = summaryData.boxscore?.teams || [];
@@ -110,11 +108,11 @@ function pluckBoxscoreTeamStats(summaryData, gameId) {
     }
 
     return {
-      gameId,
-      teamId: team.id,
-      teamName: team.displayName,
-      teamAbbr: team.abbreviation,
-      homeAway,
+      game_id: gameId,
+      team_id: team.id,
+      team_name: team.displayName,
+      team_abbr: team.abbreviation,
+      home_away: homeAway,
       ...stats,
     };
   });
