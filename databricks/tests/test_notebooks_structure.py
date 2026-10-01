@@ -130,7 +130,7 @@ class TestTableKeyAlignment:
         return name
 
     def test_game_team_stats_notebook_declares_composite_key(self, notebooks_dir):
-        """The game_team_stats notebook should use (gameId, teamId) as key."""
+        """The game_team_stats notebook should use (game_id, team_id) as key (cleaned schema)."""
         nb_path = notebooks_dir / "ingest_game_team_stats.ipynb"
         if not nb_path.exists():
             pytest.skip(f"Notebook {nb_path.name} not found")
@@ -141,9 +141,9 @@ class TestTableKeyAlignment:
             for cell in _get_notebook_cells(nb)
         ])
 
-        # Should have keys for gameId and teamId
-        assert "gameId" in source, "game_team_stats notebook should reference gameId"
-        assert "teamId" in source, "game_team_stats notebook should reference teamId"
+        # Should have keys for game_id and team_id (cleaned schema with snake_case)
+        assert "game_id" in source, "game_team_stats notebook should reference game_id"
+        assert "team_id" in source, "game_team_stats notebook should reference team_id"
 
     def test_rosters_notebook_declares_composite_key(self, notebooks_dir):
         """The rosters notebook should use (teamId, playerId) as key."""

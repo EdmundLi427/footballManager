@@ -150,10 +150,10 @@ class TestSchemaDefinitions:
         assert set(field_names) == set(expected)
 
     def test_games_schema_fields(self):
-        """Verify games schema has expected fields."""
+        """Verify games schema has expected fields (cleaned schema from Azure pluckGameHeader)."""
         schema = games_schema()
         field_names = [f.name for f in schema.fields]
-        expected = ["id", "date", "status", "completed", "venue", "city", "attendance"]
+        expected = ["game_id", "date", "status", "completed", "venue", "city"]
         assert set(field_names) == set(expected)
 
     def test_teams_schema_fields(self):
@@ -171,10 +171,10 @@ class TestSchemaDefinitions:
         assert set(field_names) == set(expected)
 
     def test_schedules_schema_fields(self):
-        """Verify schedules schema has expected fields."""
+        """Verify schedules schema has expected fields (cleaned schema from Azure pluckScheduleFields)."""
         schema = schedules_schema()
         field_names = [f.name for f in schema.fields]
-        expected = ["id", "date", "week", "status", "completed", "homeTeamId", "awayTeamId", "homeScore", "awayScore", "venue"]
+        expected = ["season", "game_id", "date", "week", "status", "completed", "home_team_id", "home_team", "home_score", "away_team_id", "away_team", "away_score", "venue"]
         assert set(field_names) == set(expected)
 
     def test_players_schema_fields(self):
@@ -214,10 +214,10 @@ class TestSchemaTableKeysAlignment:
         assert "id" in item_fields
 
     def test_games_key_in_schema(self):
-        """The 'id' key should be in games schema."""
+        """The 'game_id' key should be in games schema (cleaned schema)."""
         schema = games_schema()
         field_names = [f.name for f in schema.fields]
-        assert "id" in field_names
+        assert "game_id" in field_names
 
     def test_rosters_keys_in_schema(self):
         """Both 'teamId' and 'playerId' keys should be in rosters schema."""
