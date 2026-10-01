@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert');
 const {
   dedupeSchedulesByGameId,
+  pluckScheduleFields,
   pluckGameHeader,
   pluckBoxscoreTeamStats,
   selectTargetGames,
@@ -35,6 +36,85 @@ test('dedupeSchedulesByGameId', async (t) => {
 
     const result = dedupeSchedulesByGameId(schedules);
     assert.strictEqual(result[0].data, 'first');
+  });
+});
+
+test('pluckScheduleFields', async (t) => {
+  await t.test('extracts all schedule fields with cleaned schema', () => {
+    const event = {
+      id: 'game_401547439',
+      date: '2026-10-01T20:20Z',
+      week: { number: 5 },
+      competitions: [
+        {
+          date: '2026-10-01T20:20Z',
+          status: { type: 'Final' },
+          venue: { fullName: 'Arrowhead Stadium' },
+          competitors: [
+            {
+              homeAway: 'home',
+              team: { id: '12', displayName: 'Kansas City Chiefs' },
+              score: { value: 21, displayValue: '21' },
+            },
+            {
+              homeAway: 'away',
+              team: { id: '25', displayName: 'Detroit Lions' },
+              score: { value: 14, displayValue: '14' },
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = pluckScheduleFields(event, 2026);
+    assert.strictEqual(result.season, 2026);
+    assert.strictEqual(result.id, 'game_401547439');
+    assert.strictEqual(result.week, 5);
+    assert.strictEqual(result.home_team_id, '12');
+    assert.strictEqual(result.home_team, 'Kansas City Chiefs');
+    assert.strictEqual(result.home_score, 21);
+    assert.strictEqual(result.away_team_id, '25');
+    assert.strictEqual(result.away_team, 'Detroit Lions');
+    assert.strictEqual(result.away_score, 14);
+    assert.strictEqual(result.venue, 'Arrowhead Stadium');
+    assert.strictEqual(result.completed, true);
+    assert.strictEqual(result.status, 'Final');
+  });
+
+  await t.test('handles incomplete competition data', () => {
+    const event = {
+      id: 'game_2',
+      week: { number: 3 },
+      competitions: [{ status: { type: 'Scheduled' } }],
+    };
+
+    const result = pluckScheduleFields(event, 2026);
+    assert.strictEqual(result.id, 'game_2');
+    assert.strictEqual(result.week, 3);
+    assert.strictEqual(result.home_team_id, undefined);
+    assert.strictEqual(result.home_score, undefined);
+    assert.strictEqual(result.completed, false);
+  });
+
+  await t.test('nulls scores for unplayed games', () => {
+    const event = {
+      id: 'game_3',
+      competitions: [
+        {
+          status: { type: 'Scheduled' },
+          competitors: [
+            { homeAway: 'home', team: { id: '1' }, score: { value: 0 } },
+            { homeAway: 'away', team: { id: '2' }, score: { value: 0 } },
+          ],
+        },
+      ],
+    };
+
+    const result = pluckScheduleFields(event, 2026);
+    // Scores of 0 are included (they're real data), not nulled here
+    // Nulling happens in the Spark conform function
+    assert.strictEqual(result.home_score, 0);
+    assert.strictEqual(result.away_score, 0);
   });
 });
 
@@ -125,7 +205,7 @@ test('pluckBoxscoreTeamStats', async (t) => {
     assert.strictEqual(result[0].teamId, '1');
   });
 
-  await t.test('includes gameId in team stats records', () => {
+  await t.test('includes gameId and homeAway in team stats records', () => {
     const summaryData = {
       boxscore: {
         teams: [
@@ -145,7 +225,9 @@ test('pluckBoxscoreTeamStats', async (t) => {
     const result = pluckBoxscoreTeamStats(summaryData, gameId);
     assert.strictEqual(result.length, 2);
     assert.strictEqual(result[0].gameId, gameId);
+    assert.strictEqual(result[0].homeAway, 'H');
     assert.strictEqual(result[1].gameId, gameId);
+    assert.strictEqual(result[1].homeAway, 'A');
   });
 });
 

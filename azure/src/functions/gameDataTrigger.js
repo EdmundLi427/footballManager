@@ -1,6 +1,6 @@
 const { app } = require('@azure/functions');
 const { ESPN_SITES, getCurrentSeasonYear, fetchWithRetry, mapWithConcurrency } = require('../lib/espnClient');
-const { dedupeSchedulesByGameId, pluckGameHeader, pluckBoxscoreTeamStats, selectTargetGames } = require('../lib/espnAssemble');
+const { dedupeSchedulesByGameId, pluckScheduleFields, pluckGameHeader, pluckBoxscoreTeamStats, selectTargetGames } = require('../lib/espnAssemble');
 const { uploadJsonBlob, getStorageInfo } = require('../lib/gameDataStorage');
 
 app.timer('fetchGameData', {
@@ -86,11 +86,13 @@ app.timer('fetchGameData', {
       }
 
       const deduplicatedSchedules = dedupeSchedulesByGameId([allSchedules]);
+      // Conform to cleaned schema: extract all fields, add season, team names, handle scores
+      const conformedSchedules = deduplicatedSchedules.map((event) => pluckScheduleFields(event, seasonYear));
       const scheduleStatus = scheduleFailures === teamIds.length ? 'failed' : scheduleFailures > 0 ? 'partial' : 'success';
 
-      context.log(`[DATA_PARSED] Schedules: ${deduplicatedSchedules.length} unique games after deduping`);
+      context.log(`[DATA_PARSED] Schedules: ${conformedSchedules.length} unique games after deduping and conforming`);
 
-      const schedulesUpload = await uploadJsonBlob('schedules', deduplicatedSchedules, context);
+      const schedulesUpload = await uploadJsonBlob('schedules', conformedSchedules, context);
       summary.datasets.schedules = {
         status: scheduleStatus,
         teamFailures: scheduleFailures,

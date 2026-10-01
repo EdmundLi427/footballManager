@@ -22,10 +22,52 @@ function dedupeSchedulesByGameId(schedulesByTeam) {
 }
 
 /**
+ * Extracts schedule fields from a schedule event (team schedule endpoint).
+ * Conforms to the cleaned schema: season, game_id, week, home_team_id, home_team, home_score, away_team_id, away_team, away_score, venue, completed, status.
+ *
+ * Note: Season must be provided by the caller (from context or environment).
+ * Team names are included as denormalization.
+ * Scores are extracted from {value, displayValue} objects.
+ *
+ * @param {any} event - A single event from the schedule endpoint
+ * @param {string|number} season - The season year
+ * @returns {object} Extracted schedule record
+ */
+function pluckScheduleFields(event, season) {
+  const competition = event.competitions?.[0] || {};
+  const competitors = competition.competitors || [];
+  const homeTeam = competitors.find((c) => c.homeAway === 'home');
+  const awayTeam = competitors.find((c) => c.homeAway === 'away');
+
+  // Extract score values from {value, displayValue} objects
+  const homeScore = homeTeam?.score?.value;
+  const awayScore = awayTeam?.score?.value;
+
+  return {
+    season,
+    id: event.id,
+    date: competition.date,
+    week: event.week?.number,
+    home_team_id: homeTeam?.team?.id,
+    home_team: homeTeam?.team?.displayName,
+    home_score: homeScore,
+    away_team_id: awayTeam?.team?.id,
+    away_team: awayTeam?.team?.displayName,
+    away_score: awayScore,
+    venue: competition.venue?.fullName,
+    completed: competition.status?.type === 'Final',
+    status: competition.status?.type,
+  };
+}
+
+/**
  * Extracts game header/venue metadata from a game summary response.
+ * Conforms to the cleaned schema: game_id, venue, game_ts_utc.
+ * Note: Attendance is always empty in ESPN data and is dropped.
+ *
  * @param {any} summaryData - The /summary?event={gameId} response
  * @param {string} gameId - The game ID (passed explicitly to ensure it's captured)
- * @returns {object} Extracted game record with date, attendance, venue
+ * @returns {object} Extracted game record with venue and timestamp
  */
 function pluckGameHeader(summaryData, gameId) {
   const competition = summaryData.header?.competitions?.[0];
@@ -34,10 +76,10 @@ function pluckGameHeader(summaryData, gameId) {
   return {
     id: gameId,
     date: competition?.date,
-    status: competition?.status?.type,
-    completed: competition?.status?.type === 'Final',
     venue: gameInfo?.venue?.fullName,
     city: gameInfo?.venue?.address?.city,
+    status: competition?.status?.type,
+    completed: competition?.status?.type === 'Final',
     attendance: gameInfo?.attendance,
   };
 }
@@ -45,16 +87,20 @@ function pluckGameHeader(summaryData, gameId) {
 /**
  * Extracts team-level box score stats from a game summary.
  * Returns an array of two entries (home and away team stats).
+ * Conforms to the cleaned schema with all stat columns.
+ *
  * @param {any} summaryData - The /summary?event={gameId} response
  * @param {string} gameId - The game ID to attach to each team stat record
- * @returns {any[]} Array of { gameId, teamId, teamName, teamAbbr, ...stats } objects
+ * @returns {any[]} Array of { gameId, teamId, teamName, teamAbbr, homeAway, ...stats } objects
  */
 function pluckBoxscoreTeamStats(summaryData, gameId) {
   const teams = summaryData.boxscore?.teams || [];
 
-  return teams.map((teamData) => {
+  return teams.map((teamData, index) => {
     const team = teamData.team || {};
     const statistics = teamData.statistics || [];
+    // Home team is index 0, away team is index 1 (ESPN convention)
+    const homeAway = index === 0 ? 'H' : 'A';
 
     // Flatten statistics array into a key-value object
     const stats = {};
@@ -68,6 +114,7 @@ function pluckBoxscoreTeamStats(summaryData, gameId) {
       teamId: team.id,
       teamName: team.displayName,
       teamAbbr: team.abbreviation,
+      homeAway,
       ...stats,
     };
   });
@@ -112,6 +159,7 @@ function selectTargetGames(deduplicatedSchedules, now = new Date()) {
 
 module.exports = {
   dedupeSchedulesByGameId,
+  pluckScheduleFields,
   pluckGameHeader,
   pluckBoxscoreTeamStats,
   selectTargetGames,
