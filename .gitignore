@@ -73,3 +73,6 @@ data-service/tables.json
 # Logs
 *.log
 logs/
+
+# Planning and session docs
+.docs/
