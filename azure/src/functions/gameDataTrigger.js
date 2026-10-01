@@ -111,7 +111,7 @@ app.timer('fetchGameData', {
           const summaryResp = await fetchWithRetry(summaryUrl, {}, context);
           const summaryData = await summaryResp.json();
 
-          const gameHeader = pluckGameHeader(summaryData);
+          const gameHeader = pluckGameHeader(summaryData, gameId);
           const teamStats = pluckBoxscoreTeamStats(summaryData);
 
           return { gameId, gameHeader, teamStats, error: null };

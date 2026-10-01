@@ -69,6 +69,82 @@ Data flows through:
 
 See each module's `README.md` for setup, development, and architecture details.
 
+## Data Schema
+
+All tables are stored in Delta Lake under the catalog `football_manager`, schema `nfl`. Tables are populated by Databricks notebooks in `databricks/notebooks/` that read from Azure Blob Storage (`alsource`).
+
+### Entity-Relationship Diagram
+
+```
+                    ┌─────────────┐
+                    │   teams     │
+                    │ ┌─────────┐ │
+                    │ │ id (PK) │─┼──┐
+                    │ │ uid     │ │  │
+                    │ │ slug    │ │  │
+                    │ └─────────┘ │  │
+                    └─────────────┘  │
+                           ▲         │
+                           │         │
+                  ┌────────┴────┬────┴────────┐
+                  │             │             │
+              ┌───▼───┐    ┌────▼────┐   ┌───▼────────┐
+              │rosters│    │standings│   │schedules   │
+              ├───────┤    ├─────────┤   ├────────────┤
+              │teamId │◄──│teamId   │   │homeTeamId  │
+              │playerId   │season  │   │awayTeamId  │
+              │position   │conference   │week        │
+              │playerName │stats   │   │date        │
+              └───────┘    └─────────┘   └────────────┘
+                  ▲              │             │
+                  │              │             │
+            ┌─────▴─┐      ┌─────▼─────────────▼─────┐
+            │players│      │game_team_stats   games   │
+            ├───────┤      ├────────────────────────┤
+            │id (PK)│      │gameId             id(PK)│
+            │name   │      │teamId             date  │
+            │height │      │teamName           venue │
+            │weight │      │stats              attendance│
+            └───────┘      └────────────────────────┘
+```
+
+### Table Reference
+
+| Table | Primary Key | Source | Frequency | Purpose |
+|-------|-------------|--------|-----------|---------|
+| **teams** | `id` | ESPN API (azure/teamsPlayersTrigger) | Daily @ 06:15 UTC | Team metadata (name, colors, abbreviations) |
+| **players** | `id` | ESPN API (azure/teamsPlayersTrigger) | Daily @ 06:15 UTC | Player bio data (name, DOB, height, weight) |
+| **standings** | `teamId`, `season` | ESPN API (azure/standingsRostersTrigger) | Daily @ 08:30 UTC | Team standings (wins, losses, points, etc.) — stats are dynamic |
+| **rosters** | `teamId`, `playerId` | ESPN API (azure/standingsRostersTrigger) | Daily @ 08:30 UTC | Team rosters with player positions and jersey numbers |
+| **schedules** | `id` (gameId) | ESPN API (azure/gameDataTrigger) | Every 6 hours | Game schedule (date, week, score) — refreshed for active games |
+| **games** | `id` (gameId) | ESPN API (azure/gameDataTrigger) | Every 6 hours | Game details (venue, city, attendance) — only for targeted games |
+| **game_team_stats** | `gameId`, `teamId` | ESPN API (azure/gameDataTrigger) | Every 6 hours | Per-team boxscore stats (passing yards, rushing, penalties, etc.) — dynamic |
+
+### Common Fields
+
+All tables include lineage tracking:
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `snapshot_at` | TIMESTAMP | File modification time when data was fetched |
+| `source_file` | STRING | Azure Blob path to the source JSON file |
+| `ingested_at` | TIMESTAMP | When the record was inserted into Delta Lake |
+
+### Data Refresh Strategy
+
+- **Season-level data** (teams, players): Daily 06:15 UTC
+- **Weekly-level data** (standings, rosters): Daily 08:30 UTC
+- **Game-level data** (schedules, games, game-team-stats): Every 6 hours
+  - Schedules: deduplicated across team APIs
+  - Games & stats: only fetched for in-progress or recently-completed games (configurable trailing window, default 3 days)
+
+### Ingestion Pipeline
+
+1. **Azure Functions** (`azure/`) fetch data from ESPN/FantasyPros and write raw JSON to `alsource` blob container
+2. **Databricks notebooks** (`databricks/notebooks/ingest_game_*.ipynb`) read JSON via CloudFiles
+3. **Deduplication & Merge**: Per-batch dedup, then upsert into Delta tables (update if snapshot is newer)
+4. **Data Service** exposes read-only access via MCP/SQL for downstream applications
+
 ## Quick Start
 
 ### Prerequisites

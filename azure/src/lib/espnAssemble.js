@@ -24,14 +24,15 @@ function dedupeSchedulesByGameId(schedulesByTeam) {
 /**
  * Extracts game header/venue metadata from a game summary response.
  * @param {any} summaryData - The /summary?event={gameId} response
+ * @param {string} gameId - The game ID (passed explicitly to ensure it's captured)
  * @returns {object} Extracted game record with date, attendance, venue
  */
-function pluckGameHeader(summaryData) {
+function pluckGameHeader(summaryData, gameId) {
   const competition = summaryData.header?.competitions?.[0];
   const gameInfo = summaryData.gameInfo;
 
   return {
-    id: summaryData.header?.uid,
+    id: gameId,
     date: competition?.date,
     status: competition?.status?.type,
     completed: competition?.status?.type === 'Final',
