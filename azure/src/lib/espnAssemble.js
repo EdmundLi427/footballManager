@@ -1,8 +1,43 @@
 /**
- * Deduplicates schedule entries by game_id.
- * Each game appears in both teams' schedules; this extracts unique games.
- * @param {any[]} schedulesByTeam - Array of team schedule arrays
- * @returns {any[]} Deduplicated schedule entries
+ * Builders that turn ESPN API responses into the raw "landing" records written to blob storage.
+ *
+ * These deliberately keep ESPN's own field names, nesting and types: they only drop
+ * subtrees we never read (logos, links, leaders, ...). All renaming, typing and parsing
+ * happens downstream in databricks/lib/transforms.py, so a transform bug can be fixed and
+ * replayed over existing blobs. See databricks/TRANSFORMS.md for the full contract.
+ */
+
+const BLOB_PREFIXES = {
+  teams: 'espn/teams',
+  players: 'espn/players',
+  rosters: 'espn/rosters',
+  standings: 'espn/standings',
+  schedules: 'espn/schedules',
+  gameSummaries: 'espn/game_summaries',
+};
+
+function omit(obj, keys) {
+  if (!obj) return obj;
+  const out = { ...obj };
+  for (const key of keys) delete out[key];
+  return out;
+}
+
+function pick(obj, keys) {
+  if (!obj) return obj;
+  const out = {};
+  for (const key of keys) {
+    if (obj[key] !== undefined) out[key] = obj[key];
+  }
+  return out;
+}
+
+const TEAM_REF_KEYS = ['id', 'abbreviation', 'displayName'];
+
+/**
+ * Deduplicates schedule events by id (each game appears in both teams' schedules).
+ * @param {any[][]} schedulesByTeam - Array of per-team event arrays
+ * @returns {any[]} Unique events, first occurrence wins
  */
 function dedupeSchedulesByGameId(schedulesByTeam) {
   const seen = new Set();
@@ -10,9 +45,8 @@ function dedupeSchedulesByGameId(schedulesByTeam) {
 
   for (const schedule of schedulesByTeam) {
     for (const entry of schedule) {
-      const gameId = entry.id;
-      if (!seen.has(gameId)) {
-        seen.add(gameId);
+      if (!seen.has(entry.id)) {
+        seen.add(entry.id);
         deduplicated.push(entry);
       }
     }
@@ -21,130 +55,131 @@ function dedupeSchedulesByGameId(schedulesByTeam) {
   return deduplicated;
 }
 
-/**
- * Extracts schedule fields from a schedule event (team schedule endpoint).
- * Conforms to the cleaned schema: season, game_id, week, home_team_id, home_team, home_score, away_team_id, away_team, away_score, venue, completed, status.
- *
- * Note: Season must be provided by the caller (from context or environment).
- * Team names are included as denormalization.
- * Scores are extracted from {value, displayValue} objects.
- *
- * @param {any} event - A single event from the schedule endpoint
- * @param {string|number} season - The season year
- * @returns {object} Extracted schedule record
- */
-function pluckScheduleFields(event, season) {
-  const competition = event.competitions?.[0] || {};
-  const competitors = competition.competitors || [];
-  const homeTeam = competitors.find((c) => c.homeAway === 'home');
-  const awayTeam = competitors.find((c) => c.homeAway === 'away');
+/** `/teams` response -> team objects. */
+function buildTeamsLanding(teamsResponse) {
+  const entries = teamsResponse?.sports?.[0]?.leagues?.[0]?.teams || [];
+  return entries.map((entry) => omit(entry.team || {}, ['logos', 'links']));
+}
 
-  // Extract score values from {value, displayValue} objects
-  const homeScore = homeTeam?.score?.value;
-  const awayScore = awayTeam?.score?.value;
+/** Core-API athlete items -> athlete objects. */
+function buildPlayersLanding(athleteItems) {
+  return (athleteItems || []).map((athlete) => omit(athlete, ['links']));
+}
 
+/** `/teams/{id}/roster` response -> one record per team, position groups kept nested. */
+function buildRosterLanding(rosterResponse) {
   return {
-    season,
-    game_id: event.id,
-    date: competition.date,
-    week: event.week?.number,
-    home_team_id: homeTeam?.team?.id,
-    home_team: homeTeam?.team?.displayName,
-    home_score: homeScore,
-    away_team_id: awayTeam?.team?.id,
-    away_team: awayTeam?.team?.displayName,
-    away_score: awayScore,
-    venue: competition.venue?.fullName,
-    completed: competition.status?.type === 'Final',
-    status: competition.status?.type,
+    season: rosterResponse.season,
+    team: pick(rosterResponse.team, TEAM_REF_KEYS),
+    athletes: (rosterResponse.athletes || []).map((group) => ({
+      position: group.position,
+      items: (group.items || []).map((player) =>
+        omit(player, ['links', 'headshot', 'injuries', 'teams', 'contracts', 'alternateIds'])
+      ),
+    })),
+  };
+}
+
+/** `/standings` response -> single record with conference children and their entries. */
+function buildStandingsLanding(standingsResponse) {
+  return {
+    season: standingsResponse.season,
+    children: (standingsResponse.children || []).map((child) => ({
+      id: child.id,
+      name: child.name,
+      abbreviation: child.abbreviation,
+      standings: {
+        season: child.standings?.season,
+        seasonType: child.standings?.seasonType,
+        entries: (child.standings?.entries || []).map((entry) => ({
+          team: omit(entry.team, ['logos', 'links']),
+          stats: entry.stats,
+        })),
+      },
+    })),
+  };
+}
+
+/** Schedule event -> event without links, broadcasts, leaders and logos. */
+function trimScheduleEvent(event) {
+  return {
+    ...omit(event, ['links']),
+    competitions: (event.competitions || []).map((competition) => ({
+      ...omit(competition, ['broadcasts', 'notes', 'tickets', 'ticketsAvailable']),
+      competitors: (competition.competitors || []).map((competitor) => ({
+        ...omit(competitor, ['leaders', 'record', 'curatedRank']),
+        team: omit(competitor.team, ['logos', 'links']),
+      })),
+    })),
   };
 }
 
 /**
- * Extracts game header/venue metadata from a game summary response.
- * Conforms to the cleaned schema: game_id, venue, etc.
- *
- * @param {any} summaryData - The /summary?event={gameId} response
- * @param {string} gameId - The game ID (passed explicitly to ensure it's captured)
- * @returns {object} Extracted game record with venue and timestamp
+ * `/summary?event={id}` response -> the header, venue and team box score subtrees.
+ * One record feeds both nfl.games and nfl.game_team_stats.
  */
-function pluckGameHeader(summaryData, gameId) {
-  const competition = summaryData.header?.competitions?.[0];
-  const gameInfo = summaryData.gameInfo;
+function buildGameSummaryLanding(summaryData, gameId) {
+  const header = summaryData.header || {};
+  const venue = summaryData.gameInfo?.venue;
 
   return {
-    game_id: gameId,
-    date: competition?.date,
-    venue: gameInfo?.venue?.fullName,
-    city: gameInfo?.venue?.address?.city,
-    status: competition?.status?.type,
-    completed: competition?.status?.type === 'Final',
+    game_id: String(gameId),
+    header: {
+      id: header.id,
+      season: header.season,
+      week: header.week,
+      competitions: (header.competitions || []).map((competition) => ({
+        id: competition.id,
+        date: competition.date,
+        neutralSite: competition.neutralSite,
+        status: competition.status,
+        competitors: (competition.competitors || []).map((competitor) => ({
+          id: competitor.id,
+          homeAway: competitor.homeAway,
+          winner: competitor.winner,
+          score: competitor.score,
+          team: pick(competitor.team, TEAM_REF_KEYS),
+        })),
+      })),
+    },
+    gameInfo: {
+      venue: venue ? omit(venue, ['images']) : venue,
+      attendance: summaryData.gameInfo?.attendance,
+    },
+    boxscore: {
+      teams: (summaryData.boxscore?.teams || []).map((teamData) => ({
+        homeAway: teamData.homeAway,
+        team: pick(teamData.team, TEAM_REF_KEYS),
+        statistics: teamData.statistics || [],
+      })),
+    },
   };
 }
 
 /**
- * Extracts team-level box score stats from a game summary.
- * Returns an array of two entries (home and away team stats).
- * Conforms to the cleaned schema: game_id, team_id, team_name, home_away, ...stats.
+ * Picks the game ids that need a summary fetch this run: games that have kicked off and are
+ * either still in progress or completed inside the trailing window (catches stat corrections).
+ * Future games are skipped — their summaries have no box score yet. Capped.
  *
- * @param {any} summaryData - The /summary?event={gameId} response
- * @param {string} gameId - The game ID to attach to each team stat record
- * @returns {any[]} Array of { game_id, team_id, team_name, team_abbr, home_away, ...stats } objects
+ * @param {any[]} scheduleEvents - Raw (deduplicated) schedule events
+ * @param {Date} now
+ * @returns {string[]}
  */
-function pluckBoxscoreTeamStats(summaryData, gameId) {
-  const teams = summaryData.boxscore?.teams || [];
-
-  return teams.map((teamData, index) => {
-    const team = teamData.team || {};
-    const statistics = teamData.statistics || [];
-    // Home team is index 0, away team is index 1 (ESPN convention)
-    const homeAway = index === 0 ? 'H' : 'A';
-
-    // Flatten statistics array into a key-value object
-    const stats = {};
-    for (const stat of statistics) {
-      stats[stat.name] = stat.value;
-      stats[`${stat.name}_display`] = stat.displayValue;
-    }
-
-    return {
-      game_id: gameId,
-      team_id: team.id,
-      team_name: team.displayName,
-      team_abbr: team.abbreviation,
-      home_away: homeAway,
-      ...stats,
-    };
-  });
-}
-
-/**
- * Determines which games need a summary fetch in this run.
- * Selects games that are:
- * - Not completed, OR
- * - Completed within the trailing window (catches stat corrections)
- * Caps the result to prevent runaway requests.
- *
- * @param {any[]} deduplicatedSchedules - Deduplicated schedule entries
- * @param {Date} now - Current timestamp (for relative calculations)
- * @returns {string[]} Array of game IDs to fetch summaries for
- */
-function selectTargetGames(deduplicatedSchedules, now = new Date()) {
+function selectTargetGames(scheduleEvents, now = new Date()) {
   const trailingDays = parseInt(process.env.GAME_SUMMARY_TRAILING_DAYS || '3', 10);
   const maxTargets = parseInt(process.env.GAME_SUMMARY_MAX_TARGETS || '50', 10);
-  const trailingMs = trailingDays * 24 * 60 * 60 * 1000;
-  const cutoff = new Date(now.getTime() - trailingMs);
+  const cutoff = new Date(now.getTime() - trailingDays * 24 * 60 * 60 * 1000);
 
   const targets = [];
 
-  for (const game of deduplicatedSchedules) {
-    const gameId = game.id;
-    const completed = game.competitions?.[0]?.status?.type === 'Final';
-    const gameDate = new Date(game.date);
+  for (const event of scheduleEvents) {
+    const competition = event.competitions?.[0];
+    const completed = competition?.status?.type?.completed === true;
+    const gameDate = new Date(competition?.date || event.date);
 
-    // Include: not completed OR completed recently
-    if (!completed || gameDate >= cutoff) {
-      targets.push(gameId);
+    const started = gameDate <= now;
+    if (started && (!completed || gameDate >= cutoff)) {
+      targets.push(event.id);
     }
 
     if (targets.length >= maxTargets) {
@@ -156,9 +191,13 @@ function selectTargetGames(deduplicatedSchedules, now = new Date()) {
 }
 
 module.exports = {
+  BLOB_PREFIXES,
   dedupeSchedulesByGameId,
-  pluckScheduleFields,
-  pluckGameHeader,
-  pluckBoxscoreTeamStats,
+  buildTeamsLanding,
+  buildPlayersLanding,
+  buildRosterLanding,
+  buildStandingsLanding,
+  trimScheduleEvent,
+  buildGameSummaryLanding,
   selectTargetGames,
 };

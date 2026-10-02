@@ -1,6 +1,7 @@
 const { app } = require('@azure/functions');
 const { ESPN_SITES, getCurrentSeasonYear, fetchWithRetry, mapWithConcurrency } = require('../lib/espnClient');
 const { uploadJsonBlob, getStorageInfo } = require('../lib/gameDataStorage');
+const { BLOB_PREFIXES, buildStandingsLanding, buildRosterLanding } = require('../lib/espnAssemble');
 
 app.timer('fetchStandingsRosters', {
   schedule: '0 30 8 * * *',
@@ -29,42 +30,21 @@ app.timer('fetchStandingsRosters', {
       const standingsResp = await fetchWithRetry(standingsUrl, {}, context);
       const standingsData = await standingsResp.json();
 
-      // Flatten standings groups recursively (ESPN nests divisions/conferences)
-      const standingsPayload = [];
-      const flattenStandingsGroup = (group, season, conference = null) => {
-        const groups = group.groups || [];
-        for (const subgroup of groups) {
-          const entries = subgroup.entries || [];
-          for (const entry of entries) {
-            const teamStats = {};
-            const stats = entry.stats || [];
-            for (const stat of stats) {
-              teamStats[stat.name] = stat.value;
-            }
+      const standingsLanding = buildStandingsLanding(standingsData);
+      const standingsEntryCount = standingsLanding.children.reduce(
+        (n, child) => n + child.standings.entries.length,
+        0
+      );
 
-            standingsPayload.push({
-              teamId: entry.team?.id,
-              teamName: entry.team?.displayName,
-              season,
-              conference: subgroup.name,
-              ...teamStats,
-            });
-          }
-        }
-      };
-
-      if (standingsData.children) {
-        for (const group of standingsData.children) {
-          flattenStandingsGroup(group, seasonYear);
-        }
+      context.log(`[DATA_PARSED] Standings: ${standingsEntryCount} team entries`);
+      if (standingsEntryCount === 0) {
+        throw new Error('Standings response contained no entries; ESPN shape may have changed');
       }
 
-      context.log(`[DATA_PARSED] Standings: ${standingsPayload.length} team entries`);
-
-      const standingsUpload = await uploadJsonBlob('standings', standingsPayload, context);
+      const standingsUpload = await uploadJsonBlob(BLOB_PREFIXES.standings, [standingsLanding], context);
       summary.datasets.standings = {
         status: 'success',
-        count: standingsPayload.length,
+        count: standingsEntryCount,
         blobName: standingsUpload.blobName,
         bytes: standingsUpload.bytes,
       };
@@ -86,31 +66,10 @@ app.timer('fetchStandingsRosters', {
           const rosterUrl = `${ESPN_SITES.SITE_BASE}/teams/${teamId}/roster?season=${seasonYear}`;
           const rosterResp = await fetchWithRetry(rosterUrl, {}, context);
           const rosterData = await rosterResp.json();
-          const athletes = rosterData.athletes || [];
 
-          // Extract player data grouped by position
-          const players = [];
-          for (const positionGroup of athletes) {
-            const position = positionGroup.position?.name || 'Unknown';
-            const items = positionGroup.items || [];
-            for (const player of items) {
-              players.push({
-                teamId,
-                position,
-                playerId: player.id,
-                playerName: player.fullName,
-                jersey: player.jersey,
-                age: player.age,
-                height: player.height,
-                weight: player.weight,
-                experience: player.experience,
-              });
-            }
-          }
-
-          return { teamId, players, error: null };
+          return { teamId, landing: buildRosterLanding(rosterData), error: null };
         } catch (error) {
-          return { teamId, players: [], error: error.message };
+          return { teamId, landing: null, error: error.message };
         }
       });
 
@@ -124,19 +83,23 @@ app.timer('fetchStandingsRosters', {
           rosterFailures++;
           context.log(`[ITEM_ERROR] Roster fetch failed for team ${result.teamId}: ${result.error}`);
         } else {
-          rostersPayload.push(...result.players);
+          rostersPayload.push(result.landing);
         }
       }
 
       const rosterStatus = rosterFailures === teamIds.length ? 'failed' : rosterFailures > 0 ? 'partial' : 'success';
-      context.log(`[DATASET_SUMMARY] Rosters: ${rostersPayload.length} players, ${rosterFailures} team failures`);
+      const playerCount = rostersPayload.reduce(
+        (n, roster) => n + roster.athletes.reduce((m, group) => m + group.items.length, 0),
+        0
+      );
+      context.log(`[DATASET_SUMMARY] Rosters: ${rostersPayload.length} teams, ${playerCount} players, ${rosterFailures} team failures`);
 
-      const rostersUpload = await uploadJsonBlob('rosters', rostersPayload, context);
+      const rostersUpload = await uploadJsonBlob(BLOB_PREFIXES.rosters, rostersPayload, context);
       summary.datasets.rosters = {
         status: rosterStatus,
         teamCount: teamIds.length,
         itemFailures: rosterFailures,
-        playerCount: rostersPayload.length,
+        playerCount,
         blobName: rostersUpload.blobName,
         bytes: rostersUpload.bytes,
       };

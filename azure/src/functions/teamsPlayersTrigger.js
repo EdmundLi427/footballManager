@@ -1,6 +1,7 @@
 const { app } = require('@azure/functions');
 const { ESPN_SITES, getCurrentSeasonYear, fetchWithRetry, paginateEspnEndpoint } = require('../lib/espnClient');
 const { uploadJsonBlob, getStorageInfo } = require('../lib/gameDataStorage');
+const { BLOB_PREFIXES, buildTeamsLanding, buildPlayersLanding } = require('../lib/espnAssemble');
 
 app.timer('fetchTeamsPlayers', {
   schedule: '0 15 6 * * *',
@@ -28,26 +29,11 @@ app.timer('fetchTeamsPlayers', {
       const teamsUrl = `${ESPN_SITES.SITE_BASE}/teams?limit=100`;
       const teamsResp = await fetchWithRetry(teamsUrl, {}, context);
       const teamsData = await teamsResp.json();
-      const teams = teamsData.sports?.[0]?.leagues?.[0]?.teams || [];
+      const teamsPayload = buildTeamsLanding(teamsData);
 
-      context.log(`[DATA_PARSED] Teams: ${teams.length} received`);
+      context.log(`[DATA_PARSED] Teams: ${teamsPayload.length} received`);
 
-      // Extract team bio data
-      const teamsPayload = teams.map((entry) => {
-        const team = entry.team || {};
-        return {
-          id: team.id,
-          uid: team.uid,
-          slug: team.slug,
-          abbreviation: team.abbreviation,
-          displayName: team.displayName,
-          isActive: team.isActive,
-          color: team.color,
-          alternateColor: team.alternateColor,
-        };
-      });
-
-      const teamsUpload = await uploadJsonBlob('teams', teamsPayload, context);
+      const teamsUpload = await uploadJsonBlob(BLOB_PREFIXES.teams, teamsPayload, context);
       summary.datasets.teams = {
         status: 'success',
         count: teamsPayload.length,
@@ -65,20 +51,9 @@ app.timer('fetchTeamsPlayers', {
 
       context.log(`[DATA_PARSED] Athletes: ${allAthletes.length} total across all pages`);
 
-      const playersPayload = allAthletes.map((athlete) => ({
-        id: athlete.id,
-        uid: athlete.uid,
-        guid: athlete.guid,
-        name: athlete.name,
-        dateOfBirth: athlete.dateOfBirth,
-        birthplace: athlete.birthplace,
-        hand: athlete.hand,
-        height: athlete.height,
-        weight: athlete.weight,
-        experience: athlete.experience,
-      }));
+      const playersPayload = buildPlayersLanding(allAthletes);
 
-      const playersUpload = await uploadJsonBlob('players', playersPayload, context);
+      const playersUpload = await uploadJsonBlob(BLOB_PREFIXES.players, playersPayload, context);
       summary.datasets.players = {
         status: 'success',
         count: playersPayload.length,

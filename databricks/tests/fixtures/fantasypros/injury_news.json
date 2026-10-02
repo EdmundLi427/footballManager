@@ -1,0 +1,65 @@
+{
+  "sport": "NFL",
+  "title": "Fantasy Player News",
+  "description": "Breaking Fantasy Football player news along with the impact for fantasy managers",
+  "count": 13,
+  "items": [
+    {
+      "id": 611847,
+      "created": "2026-10-02 16:05:28",
+      "created_formated": "Fri, Oct 2nd 4:05pm UTC",
+      "author": "Ari Koslow",
+      "player_id": 19844,
+      "team_id": "NE",
+      "title": "Reggie Gilliam (knee) back at practice Friday ",
+      "sport_id": "NFL",
+      "categories": [
+        "Commentary",
+        "News",
+        "Injury"
+      ],
+      "link": "https://www.fantasypros.com/nfl/news/611847/reggie-gilliam-knee-back-practice-friday.php",
+      "desc": "Reggie Gilliam returned to practice on Friday. ",
+      "impact": "Gilliam will still need to be monitored on the injury report when it is released this afternoon. "
+    },
+    {
+      "id": 611846,
+      "created": "2026-10-02 16:04:41",
+      "created_formated": "Fri, Oct 2nd 4:04pm UTC",
+      "author": "Ari Koslow",
+      "player_id": 15324,
+      "team_id": "NE",
+      "title": "Morgan Moses (foot) back at practice Friday ",
+      "sport_id": "NFL",
+      "categories": [
+        "Commentary",
+        "News",
+        "Injury"
+      ],
+      "link": "https://www.fantasypros.com/nfl/news/611846/morgan-moses-foot-back-practice-friday.php",
+      "desc": "Morgan Moses returned to practice on Friday. ",
+      "impact": "Moses will still need to be monitored on the injury report when it is released this afternoon. "
+    },
+    {
+      "id": 611845,
+      "created": "2026-10-02 16:03:32",
+      "created_formated": "Fri, Oct 2nd 4:03pm UTC",
+      "author": "Ari Koslow",
+      "player_id": 22691,
+      "team_id": "NE",
+      "title": "Christian Barmore (shoulder) misses practice Friday ",
+      "sport_id": "NFL",
+      "categories": [
+        "Commentary",
+        "News",
+        "Injury"
+      ],
+      "link": "https://www.fantasypros.com/nfl/news/611845/christian-barmore-shoulder-misses-practice-friday.php",
+      "desc": "Christian Barmore did not practice on Friday. ",
+      "impact": "Barmore missed practice all week. He'll likely be ruled out for Sunday's game against the Bills when the official injury report is released. "
+    }
+  ],
+  "limit": 10,
+  "public_api": true,
+  "tier": "free"
+}

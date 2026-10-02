@@ -1,109 +1,71 @@
-"""
-Pytest configuration for databricks tests.
+"""Shared fixtures. Spark tests need PySpark + delta-spark + Java 17; they skip if any is missing."""
 
-Provides:
-  - SparkSession fixture for integration tests (marked with @pytest.mark.spark)
-  - Shared test data fixtures
-"""
+import os
+import shutil
+import tempfile
+import time
+from pathlib import Path
 
 import pytest
-from pathlib import Path
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+# PySpark converts collected timestamps to the Python process's local zone; pin it so
+# golden UTC values compare the same on every machine.
+os.environ["TZ"] = "UTC"
+time.tzset()
 
 
 @pytest.fixture(scope="session")
 def spark():
-    """
-    Create a local SparkSession for testing.
-
-    Marked with spark-only dependencies and optimized for local execution.
-    If PySpark/Delta are not installed, tests marked @pytest.mark.spark will skip.
-    """
-    spark_import_error = None
     try:
-        from pyspark.sql import SparkSession
         from delta import configure_spark_with_delta_pip
+        from pyspark.sql import SparkSession
     except ImportError as e:
-        spark_import_error = e
+        pytest.skip(f"PySpark/Delta not installed: {e}")
 
-    if spark_import_error:
-        pytest.skip(f"PySpark/Delta not installed: {spark_import_error}")
-
+    warehouse = tempfile.mkdtemp(prefix="spark-warehouse-")
     try:
-        spark = configure_spark_with_delta_pip(
-            SparkSession.builder
-            .appName("databricks-tests")
+        builder = (
+            SparkSession.builder.appName("databricks-tests")
             .master("local[1]")
             .config("spark.sql.shuffle.partitions", "1")
-            .config("spark.default.parallelism", "1")
+            .config("spark.sql.session.timeZone", "UTC")
+            .config("spark.sql.warehouse.dir", warehouse)
+            .config("spark.ui.enabled", "false")
             .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-            .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
-        ).getOrCreate()
+            .config(
+                "spark.sql.catalog.spark_catalog",
+                "org.apache.spark.sql.delta.catalog.DeltaCatalog",
+            )
+        )
+        session = configure_spark_with_delta_pip(builder).getOrCreate()
     except Exception as e:
         if "Java" in str(e) or "JAVA_HOME" in str(e):
-            pytest.skip(f"Java Runtime not available: {e}")
+            pytest.skip(f"Java runtime not available: {e}")
         raise
 
-    yield spark
-
-    spark.stop()
-
-
-@pytest.fixture
-def fixture_dir():
-    """Return the path to the fixtures directory."""
-    return Path(__file__).parent / "fixtures"
+    yield session
+    session.stop()
+    shutil.rmtree(warehouse, ignore_errors=True)
 
 
-@pytest.fixture
-def injury_fixture(fixture_dir):
-    """Load the sample injury news fixture."""
-    import json
-    fixture_file = fixture_dir / "injury_news.json"
-    if fixture_file.exists():
-        with open(fixture_file) as f:
-            return json.load(f)
-    return None
+@pytest.fixture(scope="session")
+def read_fixture(spark):
+    """Reads a landing fixture exactly as the notebooks read blobs: explicit raw schema + file metadata."""
+    from lib import transforms
+    from lib.schemas import TABLES
 
+    def _read(table_name: str, fixture: str | None = None):
+        table = TABLES[table_name]
+        if fixture is None:
+            fixture = (
+                "fantasypros/injury_news"
+                if table_name == "injury_news"
+                else f"espn/{table.source_prefix.split('/')[-1]}"
+            )
+        path = str(FIXTURES / f"{fixture}.json")
+        raw = spark.read.schema(table.raw_schema).option("multiLine", "true").json(path)
+        return transforms.with_file_metadata(raw)
 
-@pytest.fixture
-def games_fixture(fixture_dir):
-    """Load the sample games fixture."""
-    import json
-    fixture_file = fixture_dir / "games.json"
-    if fixture_file.exists():
-        with open(fixture_file) as f:
-            return json.load(f)
-    return None
-
-
-@pytest.fixture
-def rosters_fixture(fixture_dir):
-    """Load the sample rosters fixture."""
-    import json
-    fixture_file = fixture_dir / "rosters.json"
-    if fixture_file.exists():
-        with open(fixture_file) as f:
-            return json.load(f)
-    return None
-
-
-@pytest.fixture
-def standings_fixture(fixture_dir):
-    """Load the sample standings fixture."""
-    import json
-    fixture_file = fixture_dir / "standings.json"
-    if fixture_file.exists():
-        with open(fixture_file) as f:
-            return json.load(f)
-    return None
-
-
-@pytest.fixture
-def game_team_stats_fixture(fixture_dir):
-    """Load the sample game-team-stats fixture."""
-    import json
-    fixture_file = fixture_dir / "game_team_stats.json"
-    if fixture_file.exists():
-        with open(fixture_file) as f:
-            return json.load(f)
-    return None
+    return _read

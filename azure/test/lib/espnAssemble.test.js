@@ -1,284 +1,145 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const path = require('node:path');
+const fs = require('node:fs');
 const {
+  BLOB_PREFIXES,
   dedupeSchedulesByGameId,
-  pluckScheduleFields,
-  pluckGameHeader,
-  pluckBoxscoreTeamStats,
+  buildTeamsLanding,
+  buildPlayersLanding,
+  buildRosterLanding,
+  buildStandingsLanding,
+  trimScheduleEvent,
+  buildGameSummaryLanding,
   selectTargetGames,
 } = require('../../src/lib/espnAssemble');
 
+const RAW_DIR = path.join(__dirname, '..', 'fixture', 'espn');
+const LANDING_DIR = path.join(__dirname, '..', '..', '..', 'databricks', 'tests', 'fixtures', 'espn');
+
+const loadRaw = (name) => JSON.parse(fs.readFileSync(path.join(RAW_DIR, `${name}.json`), 'utf8'));
+const loadLanding = (name) => JSON.parse(fs.readFileSync(path.join(LANDING_DIR, `${name}.json`), 'utf8'));
+
+// Contract: builder(recorded ESPN response) must equal the fixture the Databricks parsers are tested on.
+test('landing payloads match the Databricks parser fixtures', async (t) => {
+  await t.test('teams', () => {
+    assert.deepStrictEqual(buildTeamsLanding(loadRaw('teams')), loadLanding('teams'));
+  });
+
+  await t.test('players', () => {
+    assert.deepStrictEqual(buildPlayersLanding(loadRaw('athletes').items), loadLanding('players'));
+  });
+
+  await t.test('rosters', () => {
+    assert.deepStrictEqual([buildRosterLanding(loadRaw('roster'))], loadLanding('rosters'));
+  });
+
+  await t.test('standings', () => {
+    assert.deepStrictEqual([buildStandingsLanding(loadRaw('standings'))], loadLanding('standings'));
+  });
+
+  await t.test('schedules', () => {
+    assert.deepStrictEqual(loadRaw('schedule').events.map(trimScheduleEvent), loadLanding('schedules'));
+  });
+
+  await t.test('game summaries', () => {
+    const { game_id: gameId, ...summary } = loadRaw('summary');
+    assert.deepStrictEqual([buildGameSummaryLanding(summary, gameId)], loadLanding('game_summaries'));
+  });
+});
+
+test('landing builders keep the ESPN fields the parsers read', async (t) => {
+  await t.test('game summary keeps real homeAway (ESPN lists the away team first)', () => {
+    const [landing] = loadLanding('game_summaries');
+    const sides = landing.boxscore.teams.map((team) => team.homeAway).sort();
+    assert.deepStrictEqual(sides, ['away', 'home']);
+    for (const team of landing.boxscore.teams) {
+      assert.ok(team.statistics.every((stat) => typeof stat.displayValue === 'string'));
+    }
+  });
+
+  await t.test('schedule events keep status object and competitor scores', () => {
+    for (const event of loadLanding('schedules')) {
+      const competition = event.competitions[0];
+      assert.strictEqual(typeof competition.status.type.completed, 'boolean');
+      assert.strictEqual(competition.competitors.length, 2);
+      assert.ok(competition.competitors.every((c) => c.team.id && c.homeAway));
+      assert.ok(!('leaders' in competition.competitors[0]));
+    }
+  });
+
+  await t.test('standings entries are present (children[].standings.entries)', () => {
+    const [landing] = loadLanding('standings');
+    assert.ok(landing.children.length > 0);
+    assert.ok(landing.children.every((child) => child.standings.entries.length > 0));
+  });
+
+  await t.test('rosters drop heavy subtrees but keep position objects', () => {
+    const [landing] = loadLanding('rosters');
+    const player = landing.athletes[0].items[0];
+    assert.ok(player.position.abbreviation);
+    assert.ok(!('headshot' in player));
+    assert.ok(!('links' in player));
+  });
+
+  await t.test('blob prefixes all live under espn/', () => {
+    assert.ok(Object.values(BLOB_PREFIXES).every((prefix) => prefix.startsWith('espn/')));
+  });
+});
+
 test('dedupeSchedulesByGameId', async (t) => {
   await t.test('deduplicates games that appear in multiple team schedules', () => {
-    const schedule1 = [
-      { id: 'game_1', week: 1, date: '2026-09-06' },
-      { id: 'game_2', week: 1, date: '2026-09-07' },
-    ];
-
-    const schedule2 = [
-      { id: 'game_2', week: 1, date: '2026-09-07' }, // Duplicate
-      { id: 'game_3', week: 1, date: '2026-09-08' },
-    ];
-
-    const result = dedupeSchedulesByGameId([schedule1, schedule2]);
-    assert.strictEqual(result.length, 3);
+    const result = dedupeSchedulesByGameId([
+      [{ id: '1' }, { id: '2' }],
+      [{ id: '2' }, { id: '3' }],
+    ]);
     assert.deepStrictEqual(
       result.map((g) => g.id),
-      ['game_1', 'game_2', 'game_3']
+      ['1', '2', '3']
     );
   });
 
   await t.test('preserves first occurrence', () => {
-    const schedules = [
-      [{ id: 'game_1', data: 'first', week: 1 }],
-      [{ id: 'game_1', data: 'second', week: 1 }],
-    ];
-
-    const result = dedupeSchedulesByGameId(schedules);
+    const result = dedupeSchedulesByGameId([[{ id: '1', data: 'first' }], [{ id: '1', data: 'second' }]]);
     assert.strictEqual(result[0].data, 'first');
   });
 });
 
-test('pluckScheduleFields', async (t) => {
-  await t.test('extracts all schedule fields with cleaned schema', () => {
-    const event = {
-      id: 'game_401547439',
-      date: '2026-10-01T20:20Z',
-      week: { number: 5 },
-      competitions: [
-        {
-          date: '2026-10-01T20:20Z',
-          status: { type: 'Final' },
-          venue: { fullName: 'Arrowhead Stadium' },
-          competitors: [
-            {
-              homeAway: 'home',
-              team: { id: '12', displayName: 'Kansas City Chiefs' },
-              score: { value: 21, displayValue: '21' },
-            },
-            {
-              homeAway: 'away',
-              team: { id: '25', displayName: 'Detroit Lions' },
-              score: { value: 14, displayValue: '14' },
-            },
-          ],
-        },
-      ],
-    };
-
-    const result = pluckScheduleFields(event, 2026);
-    assert.strictEqual(result.season, 2026);
-    assert.strictEqual(result.game_id, 'game_401547439');
-    assert.strictEqual(result.week, 5);
-    assert.strictEqual(result.home_team_id, '12');
-    assert.strictEqual(result.home_team, 'Kansas City Chiefs');
-    assert.strictEqual(result.home_score, 21);
-    assert.strictEqual(result.away_team_id, '25');
-    assert.strictEqual(result.away_team, 'Detroit Lions');
-    assert.strictEqual(result.away_score, 14);
-    assert.strictEqual(result.venue, 'Arrowhead Stadium');
-    assert.strictEqual(result.completed, true);
-    assert.strictEqual(result.status, 'Final');
-  });
-
-  await t.test('handles incomplete competition data', () => {
-    const event = {
-      id: 'game_2',
-      week: { number: 3 },
-      competitions: [{ status: { type: 'Scheduled' } }],
-    };
-
-    const result = pluckScheduleFields(event, 2026);
-    assert.strictEqual(result.game_id, 'game_2');
-    assert.strictEqual(result.week, 3);
-    assert.strictEqual(result.home_team_id, undefined);
-    assert.strictEqual(result.home_score, undefined);
-    assert.strictEqual(result.completed, false);
-  });
-
-  await t.test('nulls scores for unplayed games', () => {
-    const event = {
-      id: 'game_3',
-      competitions: [
-        {
-          status: { type: 'Scheduled' },
-          competitors: [
-            { homeAway: 'home', team: { id: '1' }, score: { value: 0 } },
-            { homeAway: 'away', team: { id: '2' }, score: { value: 0 } },
-          ],
-        },
-      ],
-    };
-
-    const result = pluckScheduleFields(event, 2026);
-    // Scores of 0 are included (they're real data), not nulled here
-    // Nulling happens in the Spark conform function
-    assert.strictEqual(result.game_id, 'game_3');
-    assert.strictEqual(result.home_score, 0);
-    assert.strictEqual(result.away_score, 0);
-  });
-});
-
-test('pluckGameHeader', async (t) => {
-  await t.test('extracts game header info', () => {
-    const summaryData = {
-      header: {
-        uid: 'game_401547439',
-        competitions: [
-          {
-            date: '2026-09-13T20:20Z',
-            status: { type: 'Final' },
-            venue: { fullName: 'Arrowhead Stadium' },
-          },
-        ],
-      },
-      gameInfo: {
-        attendance: 76414,
-        venue: {
-          fullName: 'Arrowhead Stadium',
-          address: { city: 'Kansas City' },
-        },
-      },
-    };
-
-    const result = pluckGameHeader(summaryData, 'game_401547439');
-    assert.strictEqual(result.game_id, 'game_401547439');
-    assert.strictEqual(result.date, '2026-09-13T20:20Z');
-    assert.strictEqual(result.status, 'Final');
-    assert.strictEqual(result.completed, true);
-    assert.strictEqual(result.venue, 'Arrowhead Stadium');
-    assert.strictEqual(result.city, 'Kansas City');
-  });
-
-  await t.test('handles missing fields gracefully', () => {
-    const summaryData = { header: {}, gameInfo: {} };
-    const result = pluckGameHeader(summaryData, undefined);
-    assert.strictEqual(result.game_id, undefined);
-    assert.strictEqual(result.completed, false);
-  });
-});
-
-test('pluckBoxscoreTeamStats', async (t) => {
-  await t.test('extracts team stats from boxscore', () => {
-    const summaryData = {
-      boxscore: {
-        teams: [
-          {
-            team: { id: '12', displayName: 'Kansas City Chiefs', abbreviation: 'KC' },
-            statistics: [
-              { name: 'firstDowns', value: 28, displayValue: '28' },
-              { name: 'totalYards', value: 412, displayValue: '412' },
-            ],
-          },
-          {
-            team: { id: '25', displayName: 'Detroit Lions', abbreviation: 'DET' },
-            statistics: [{ name: 'firstDowns', value: 22, displayValue: '22' }],
-          },
-        ],
-      },
-    };
-
-    const result = pluckBoxscoreTeamStats(summaryData);
-    assert.strictEqual(result.length, 2);
-
-    // Check home team (Chiefs)
-    assert.strictEqual(result[0].team_id, '12');
-    assert.strictEqual(result[0].team_name, 'Kansas City Chiefs');
-    assert.strictEqual(result[0].firstDowns, 28);
-    assert.strictEqual(result[0].firstDowns_display, '28');
-    assert.strictEqual(result[0].totalYards, 412);
-
-    // Check away team (Lions)
-    assert.strictEqual(result[1].team_id, '25');
-    assert.strictEqual(result[1].firstDowns, 22);
-  });
-
-  await t.test('handles empty statistics', () => {
-    const summaryData = {
-      boxscore: {
-        teams: [{ team: { id: '1', displayName: 'Team A', abbreviation: 'A' }, statistics: [] }],
-      },
-    };
-
-    const result = pluckBoxscoreTeamStats(summaryData);
-    assert.strictEqual(result.length, 1);
-    assert.strictEqual(result[0].team_id, '1');
-  });
-
-  await t.test('includes game_id and home_away in team stats records', () => {
-    const summaryData = {
-      boxscore: {
-        teams: [
-          {
-            team: { id: '12', displayName: 'Kansas City Chiefs', abbreviation: 'KC' },
-            statistics: [{ name: 'firstDowns', value: 28, displayValue: '28' }],
-          },
-          {
-            team: { id: '25', displayName: 'Detroit Lions', abbreviation: 'DET' },
-            statistics: [{ name: 'firstDowns', value: 22, displayValue: '22' }],
-          },
-        ],
-      },
-    };
-
-    const gameId = 'game_401547439';
-    const result = pluckBoxscoreTeamStats(summaryData, gameId);
-    assert.strictEqual(result.length, 2);
-    assert.strictEqual(result[0].game_id, gameId);
-    assert.strictEqual(result[0].home_away, 'H');
-    assert.strictEqual(result[1].game_id, gameId);
-    assert.strictEqual(result[1].home_away, 'A');
-  });
+const event = (id, date, completed) => ({
+  id,
+  date,
+  competitions: [{ date, status: { type: { completed, state: completed ? 'post' : 'pre' } } }],
 });
 
 test('selectTargetGames', async (t) => {
-  await t.test('selects games that are not completed', () => {
-    const schedules = [
-      {
-        id: 'game_1',
-        date: '2026-10-01T20:00Z',
-        competitions: [{ status: { type: 'Scheduled' } }],
-      },
-      {
-        id: 'game_2',
-        date: '2026-10-02T20:00Z',
-        competitions: [{ status: { type: 'InProgress' } }],
-      },
-    ];
+  const now = new Date('2026-10-05T00:00Z');
 
-    const result = selectTargetGames(schedules);
-    assert.deepStrictEqual(result, ['game_1', 'game_2']);
+  await t.test('selects started, not-completed games and skips future games', () => {
+    const result = selectTargetGames(
+      [event('in_progress', '2026-10-04T20:00Z', false), event('future', '2026-10-12T20:00Z', false)],
+      now
+    );
+    assert.deepStrictEqual(result, ['in_progress']);
   });
 
-  await t.test('includes recently completed games (within trailing window)', () => {
-    const now = new Date('2026-10-05T00:00Z');
-    const schedules = [
-      {
-        id: 'game_1',
-        date: '2026-10-04T20:00Z', // 1 day ago - within 3-day window
-        competitions: [{ status: { type: 'Final' } }],
-      },
-      {
-        id: 'game_2',
-        date: '2026-09-27T20:00Z', // 8 days ago - outside 3-day window
-        competitions: [{ status: { type: 'Final' } }],
-      },
-    ];
+  await t.test('includes completed games only inside the trailing window', () => {
+    const result = selectTargetGames(
+      [event('recent', '2026-10-04T20:00Z', true), event('old', '2026-09-27T20:00Z', true)],
+      now
+    );
+    assert.deepStrictEqual(result, ['recent']);
+  });
 
-    const result = selectTargetGames(schedules, now);
-    assert.deepStrictEqual(result, ['game_1']);
+  await t.test('reads completion from the real ESPN status object', () => {
+    const [completed] = loadLanding('schedules').filter((e) => e.competitions[0].status.type.completed);
+    const longAfter = new Date(new Date(completed.competitions[0].date).getTime() + 30 * 86400000);
+    assert.deepStrictEqual(selectTargetGames([completed], longAfter), []);
   });
 
   await t.test('respects max targets ceiling', () => {
     process.env.GAME_SUMMARY_MAX_TARGETS = '2';
-    const schedules = Array.from({ length: 10 }, (_, i) => ({
-      id: `game_${i}`,
-      date: '2026-10-01T20:00Z',
-      competitions: [{ status: { type: 'Scheduled' } }],
-    }));
-
-    const result = selectTargetGames(schedules);
-    assert.strictEqual(result.length, 2);
+    const events = Array.from({ length: 10 }, (_, i) => event(`g${i}`, '2026-10-04T20:00Z', false));
+    assert.strictEqual(selectTargetGames(events, now).length, 2);
     delete process.env.GAME_SUMMARY_MAX_TARGETS;
   });
 });

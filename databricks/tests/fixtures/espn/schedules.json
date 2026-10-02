@@ -1,0 +1,196 @@
+[
+  {
+    "id": "401872931",
+    "date": "2026-09-15T00:15Z",
+    "name": "Denver Broncos at Kansas City Chiefs",
+    "shortName": "DEN @ KC",
+    "season": {
+      "year": 2026,
+      "displayName": "2026"
+    },
+    "seasonType": {
+      "id": "2",
+      "type": 2,
+      "name": "Regular Season",
+      "abbreviation": "reg"
+    },
+    "week": {
+      "number": 1,
+      "text": "Week 1"
+    },
+    "timeValid": true,
+    "competitions": [
+      {
+        "id": "401872931",
+        "date": "2026-09-15T00:15Z",
+        "attendance": 73543,
+        "type": {
+          "id": "1",
+          "text": "Standard",
+          "abbreviation": "STD",
+          "slug": "standard",
+          "type": "standard"
+        },
+        "timeValid": true,
+        "neutralSite": false,
+        "boxscoreAvailable": true,
+        "venue": {
+          "fullName": "Arrowhead Stadium",
+          "address": {
+            "city": "Kansas City",
+            "state": "MO",
+            "zipCode": "64129",
+            "country": "USA"
+          }
+        },
+        "competitors": [
+          {
+            "id": "12",
+            "type": "team",
+            "order": 0,
+            "homeAway": "home",
+            "winner": true,
+            "team": {
+              "id": "12",
+              "location": "Kansas City",
+              "nickname": "Chiefs",
+              "abbreviation": "KC",
+              "displayName": "Kansas City Chiefs",
+              "shortDisplayName": "Chiefs"
+            },
+            "score": {
+              "value": 31,
+              "displayValue": "31"
+            }
+          },
+          {
+            "id": "7",
+            "type": "team",
+            "order": 1,
+            "homeAway": "away",
+            "winner": false,
+            "team": {
+              "id": "7",
+              "location": "Denver",
+              "nickname": "Broncos",
+              "abbreviation": "DEN",
+              "displayName": "Denver Broncos",
+              "shortDisplayName": "Broncos"
+            },
+            "score": {
+              "value": 10,
+              "displayValue": "10"
+            }
+          }
+        ],
+        "status": {
+          "clock": 0,
+          "displayClock": "0:00",
+          "period": 4,
+          "type": {
+            "id": "3",
+            "name": "STATUS_FINAL",
+            "state": "post",
+            "completed": true,
+            "description": "Final",
+            "detail": "Final",
+            "shortDetail": "Final"
+          },
+          "isTBDFlex": false
+        }
+      }
+    ]
+  },
+  {
+    "id": "401872976",
+    "date": "2026-10-04T20:25Z",
+    "name": "Kansas City Chiefs at Las Vegas Raiders",
+    "shortName": "KC @ LV",
+    "season": {
+      "year": 2026,
+      "displayName": "2026"
+    },
+    "seasonType": {
+      "id": "2",
+      "type": 2,
+      "name": "Regular Season",
+      "abbreviation": "reg"
+    },
+    "week": {
+      "number": 4,
+      "text": "Week 4"
+    },
+    "timeValid": true,
+    "competitions": [
+      {
+        "id": "401872976",
+        "date": "2026-10-04T20:25Z",
+        "attendance": 0,
+        "type": {
+          "id": "1",
+          "text": "Standard",
+          "abbreviation": "STD",
+          "slug": "standard",
+          "type": "standard"
+        },
+        "timeValid": true,
+        "neutralSite": false,
+        "boxscoreAvailable": false,
+        "venue": {
+          "fullName": "Allegiant Stadium",
+          "address": {
+            "city": "Las Vegas",
+            "state": "NV",
+            "zipCode": "89118",
+            "country": "USA"
+          }
+        },
+        "competitors": [
+          {
+            "id": "13",
+            "type": "team",
+            "order": 0,
+            "homeAway": "home",
+            "team": {
+              "id": "13",
+              "location": "Las Vegas",
+              "nickname": "Raiders",
+              "abbreviation": "LV",
+              "displayName": "Las Vegas Raiders",
+              "shortDisplayName": "Raiders"
+            }
+          },
+          {
+            "id": "12",
+            "type": "team",
+            "order": 1,
+            "homeAway": "away",
+            "team": {
+              "id": "12",
+              "location": "Kansas City",
+              "nickname": "Chiefs",
+              "abbreviation": "KC",
+              "displayName": "Kansas City Chiefs",
+              "shortDisplayName": "Chiefs"
+            }
+          }
+        ],
+        "status": {
+          "clock": 0,
+          "displayClock": "0:00",
+          "period": 0,
+          "type": {
+            "id": "1",
+            "name": "STATUS_SCHEDULED",
+            "state": "pre",
+            "completed": false,
+            "description": "Scheduled",
+            "detail": "Sun, October 4th at 4:25 PM EDT",
+            "shortDetail": "10/4 - 4:25 PM EDT"
+          },
+          "isTBDFlex": false
+        }
+      }
+    ]
+  }
+]

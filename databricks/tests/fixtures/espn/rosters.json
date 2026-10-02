@@ -1,0 +1,879 @@
+[
+  {
+    "season": {
+      "year": 2026,
+      "displayName": "2026",
+      "type": 2,
+      "name": "Regular Season"
+    },
+    "team": {
+      "id": "12",
+      "abbreviation": "KC",
+      "displayName": "Kansas City Chiefs"
+    },
+    "athletes": [
+      {
+        "position": "offense",
+        "items": [
+          {
+            "id": "4912218",
+            "uid": "s:20~l:28~a:4912218",
+            "guid": "0fdecc73-7b90-3cca-8bfc-a5d585ca037f",
+            "firstName": "Cyrus",
+            "lastName": "Allen",
+            "fullName": "Cyrus Allen",
+            "displayName": "Cyrus Allen",
+            "shortName": "C. Allen",
+            "weight": 180,
+            "displayWeight": "180 lbs",
+            "height": 71,
+            "displayHeight": "5' 11\"",
+            "age": 23,
+            "dateOfBirth": "2003-02-11T08:00Z",
+            "birthPlace": {
+              "city": "New Orleans",
+              "state": "LA",
+              "country": "USA"
+            },
+            "college": {
+              "id": "2132",
+              "guid": "2a9e6a6d-aa16-3525-a5f4-2aee8a1a77e6",
+              "mascot": "Bearcats",
+              "name": "Cincinnati",
+              "shortName": "Cincinnati",
+              "abbrev": "CIN",
+              "logos": [
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500/2132.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "default"
+                  ],
+                  "lastUpdated": "2025-12-23T01:44Z"
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500-dark/2132.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "dark"
+                  ],
+                  "lastUpdated": "2025-12-23T01:44Z"
+                }
+              ]
+            },
+            "slug": "cyrus-allen",
+            "jersey": "13",
+            "position": {
+              "id": "1",
+              "name": "Wide Receiver",
+              "displayName": "Wide Receiver",
+              "abbreviation": "WR",
+              "leaf": true,
+              "parent": {
+                "id": "70",
+                "name": "Offense",
+                "displayName": "Offense",
+                "abbreviation": "OFF",
+                "leaf": false
+              }
+            },
+            "experience": {
+              "years": 0
+            },
+            "status": {
+              "id": "1",
+              "name": "Active",
+              "type": "active",
+              "abbreviation": "Active"
+            }
+          },
+          {
+            "id": "4566190",
+            "uid": "s:20~l:28~a:4566190",
+            "guid": "a9cde512-baa7-3b6c-89e3-c2666e4ebe35",
+            "firstName": "Kahlil",
+            "lastName": "Benson",
+            "fullName": "Kahlil Benson",
+            "displayName": "Kahlil Benson",
+            "shortName": "K. Benson",
+            "weight": 319,
+            "displayWeight": "319 lbs",
+            "height": 78,
+            "displayHeight": "6' 6\"",
+            "age": 24,
+            "dateOfBirth": "2002-08-20T07:00Z",
+            "birthPlace": {
+              "city": "Southaven",
+              "state": "MS",
+              "country": "USA"
+            },
+            "college": {
+              "id": "84",
+              "guid": "792ba7c6-9f41-3563-a1a4-fdef86947037",
+              "mascot": "Hoosiers",
+              "name": "Indiana",
+              "shortName": "Indiana",
+              "abbrev": "IU",
+              "logos": [
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500/84.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "default"
+                  ],
+                  "lastUpdated": "2025-12-23T01:44Z"
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500-dark/84.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "dark"
+                  ],
+                  "lastUpdated": "2025-12-30T19:45Z"
+                }
+              ]
+            },
+            "slug": "kahlil-benson",
+            "jersey": "70",
+            "position": {
+              "id": "46",
+              "name": "Offensive Tackle",
+              "displayName": "Offensive Tackle",
+              "abbreviation": "OT",
+              "leaf": true,
+              "parent": {
+                "id": "70",
+                "name": "Offense",
+                "displayName": "Offense",
+                "abbreviation": "OFF",
+                "leaf": false
+              }
+            },
+            "experience": {
+              "years": 0
+            },
+            "status": {
+              "id": "1",
+              "name": "Active",
+              "type": "active",
+              "abbreviation": "Active"
+            }
+          }
+        ]
+      },
+      {
+        "position": "defense",
+        "items": [
+          {
+            "id": "4612387",
+            "uid": "s:20~l:28~a:4612387",
+            "guid": "45821a7f-80e2-3d49-9a7a-812328831448",
+            "firstName": "Felix",
+            "lastName": "Anudike-Uzomah",
+            "fullName": "Felix Anudike-Uzomah",
+            "displayName": "Felix Anudike-Uzomah",
+            "shortName": "F. Anudike-Uzomah",
+            "weight": 255,
+            "displayWeight": "255 lbs",
+            "height": 76,
+            "displayHeight": "6' 4\"",
+            "age": 24,
+            "dateOfBirth": "2002-01-24T08:00Z",
+            "birthPlace": {
+              "city": "Kansas City",
+              "state": "MO",
+              "country": "USA"
+            },
+            "college": {
+              "id": "2306",
+              "guid": "0135af66-f39d-3608-accc-238ac49793b6",
+              "mascot": "Wildcats",
+              "name": "Kansas State",
+              "shortName": "Kansas St",
+              "abbrev": "KSU",
+              "logos": [
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500/2306.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "default"
+                  ],
+                  "lastUpdated": "2025-12-23T01:44Z"
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500-dark/2306.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "dark"
+                  ],
+                  "lastUpdated": "2025-12-23T01:44Z"
+                }
+              ]
+            },
+            "slug": "felix-anudike-uzomah",
+            "jersey": "91",
+            "position": {
+              "id": "31",
+              "name": "Defensive End",
+              "displayName": "Defensive End",
+              "abbreviation": "DE",
+              "leaf": true,
+              "parent": {
+                "id": "71",
+                "name": "Defense",
+                "displayName": "Defense",
+                "abbreviation": "DEF",
+                "leaf": false
+              }
+            },
+            "experience": {
+              "years": 4
+            },
+            "contract": {
+              "optionType": 0,
+              "salary": 2361522,
+              "bonus": 0,
+              "yearsRemaining": 0,
+              "signedThrough": 2026,
+              "season": {
+                "year": 2026,
+                "startDate": "2026-08-06T07:00Z",
+                "endDate": "2027-02-16T07:59Z"
+              },
+              "active": true
+            },
+            "status": {
+              "id": "1",
+              "name": "Active",
+              "type": "active",
+              "abbreviation": "Active"
+            }
+          },
+          {
+            "id": "4602389",
+            "uid": "s:20~l:28~a:4602389",
+            "guid": "3aac9221-9c7f-3b55-a13f-5037dafd24a1",
+            "firstName": "Jeffrey",
+            "lastName": "Bassa",
+            "fullName": "Jeffrey Bassa",
+            "displayName": "Jeffrey Bassa",
+            "shortName": "J. Bassa",
+            "weight": 235,
+            "displayWeight": "235 lbs",
+            "height": 74,
+            "displayHeight": "6' 2\"",
+            "age": 24,
+            "dateOfBirth": "2002-09-20T07:00Z",
+            "birthPlace": {
+              "city": "Salt Lake City",
+              "state": "UT",
+              "country": "USA"
+            },
+            "college": {
+              "id": "2483",
+              "guid": "94cc8326-138d-3d76-8f6e-65e8744e6d92",
+              "mascot": "Ducks",
+              "name": "Oregon",
+              "shortName": "Oregon",
+              "abbrev": "ORE",
+              "logos": [
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500/2483.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "default"
+                  ],
+                  "lastUpdated": "2025-12-23T01:44Z"
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500-dark/2483.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "dark"
+                  ],
+                  "lastUpdated": "2025-12-23T01:44Z"
+                }
+              ]
+            },
+            "slug": "jeffrey-bassa",
+            "jersey": "31",
+            "position": {
+              "id": "30",
+              "name": "Linebacker",
+              "displayName": "Linebacker",
+              "abbreviation": "LB",
+              "leaf": true,
+              "parent": {
+                "id": "71",
+                "name": "Defense",
+                "displayName": "Defense",
+                "abbreviation": "DEF",
+                "leaf": false
+              }
+            },
+            "experience": {
+              "years": 2
+            },
+            "status": {
+              "id": "1",
+              "name": "Active",
+              "type": "active",
+              "abbreviation": "Active"
+            }
+          }
+        ]
+      },
+      {
+        "position": "specialTeam",
+        "items": [
+          {
+            "id": "4361496",
+            "uid": "s:20~l:28~a:4361496",
+            "guid": "6413ecd2-2eea-bc64-9bd1-0536f0ca9500",
+            "firstName": "Matt",
+            "lastName": "Araiza",
+            "fullName": "Matt Araiza",
+            "displayName": "Matt Araiza",
+            "shortName": "M. Araiza",
+            "weight": 200,
+            "displayWeight": "200 lbs",
+            "height": 73,
+            "displayHeight": "6' 1\"",
+            "age": 26,
+            "dateOfBirth": "2000-05-16T07:00Z",
+            "birthPlace": {
+              "city": "San Diego",
+              "state": "CA",
+              "country": "USA"
+            },
+            "college": {
+              "id": "21",
+              "guid": "cacb8e71-840f-3b1a-a701-70018799b810",
+              "mascot": "Aztecs",
+              "name": "San Diego State",
+              "shortName": "San Diego St",
+              "abbrev": "SDSU",
+              "logos": [
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500/21.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "default"
+                  ],
+                  "lastUpdated": "2025-12-24T20:19Z"
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500-dark/21.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "dark"
+                  ],
+                  "lastUpdated": "2025-12-24T20:18Z"
+                }
+              ]
+            },
+            "slug": "matt-araiza",
+            "jersey": "14",
+            "position": {
+              "id": "23",
+              "name": "Punter",
+              "displayName": "Punter",
+              "abbreviation": "P",
+              "leaf": true,
+              "parent": {
+                "id": "72",
+                "name": "Special Teams",
+                "displayName": "Special Teams",
+                "abbreviation": "ST",
+                "leaf": false
+              }
+            },
+            "experience": {
+              "years": 3
+            },
+            "contract": {
+              "optionType": 0,
+              "salary": 1075000,
+              "bonus": 0,
+              "yearsRemaining": 0,
+              "signedThrough": 2026,
+              "season": {
+                "year": 2026,
+                "startDate": "2026-08-06T07:00Z",
+                "endDate": "2027-02-16T07:59Z"
+              },
+              "active": true
+            },
+            "status": {
+              "id": "1",
+              "name": "Active",
+              "type": "active",
+              "abbreviation": "Active"
+            }
+          },
+          {
+            "id": "3055899",
+            "uid": "s:20~l:28~a:3055899",
+            "guid": "5aabffc1-7ac1-5d1e-e94f-1386ec369d23",
+            "firstName": "Harrison",
+            "lastName": "Butker",
+            "fullName": "Harrison Butker",
+            "displayName": "Harrison Butker",
+            "shortName": "H. Butker",
+            "weight": 205,
+            "displayWeight": "205 lbs",
+            "height": 76,
+            "displayHeight": "6' 4\"",
+            "age": 31,
+            "dateOfBirth": "1995-07-14T07:00Z",
+            "debutYear": 2017,
+            "birthPlace": {
+              "city": "Decatur",
+              "state": "GA",
+              "country": "USA"
+            },
+            "college": {
+              "id": "59",
+              "guid": "09d600fd-3be9-3989-9b0d-cde3ce89c14d",
+              "mascot": "Yellow Jackets",
+              "name": "Georgia Tech",
+              "shortName": "Georgia Tech",
+              "abbrev": "GT",
+              "logos": [
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500/59.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "default"
+                  ],
+                  "lastUpdated": "2025-12-19T22:33Z"
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500-dark/59.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "dark"
+                  ],
+                  "lastUpdated": "2025-12-19T22:35Z"
+                }
+              ]
+            },
+            "slug": "harrison-butker",
+            "jersey": "7",
+            "position": {
+              "id": "22",
+              "name": "Place kicker",
+              "displayName": "Place Kicker",
+              "abbreviation": "PK",
+              "leaf": true,
+              "parent": {
+                "id": "72",
+                "name": "Special Teams",
+                "displayName": "Special Teams",
+                "abbreviation": "ST",
+                "leaf": false
+              }
+            },
+            "experience": {
+              "years": 10
+            },
+            "contract": {
+              "optionType": 0,
+              "salary": 5905000,
+              "bonus": 0,
+              "salaryRemaining": 11695000,
+              "yearsRemaining": 2,
+              "signedThrough": 2028,
+              "season": {
+                "year": 2026,
+                "startDate": "2026-08-06T07:00Z",
+                "endDate": "2027-02-16T07:59Z"
+              },
+              "active": true
+            },
+            "status": {
+              "id": "1",
+              "name": "Active",
+              "type": "active",
+              "abbreviation": "Active"
+            }
+          }
+        ]
+      },
+      {
+        "position": "injuredReserveOrOut",
+        "items": [
+          {
+            "id": "4885466",
+            "uid": "s:20~l:28~a:4885466",
+            "guid": "3b79a0b5-667a-34ac-8a5c-d67b45363beb",
+            "firstName": "Jeff",
+            "lastName": "Caldwell",
+            "fullName": "Jeff Caldwell",
+            "displayName": "Jeff Caldwell",
+            "shortName": "J. Caldwell",
+            "weight": 215,
+            "displayWeight": "215 lbs",
+            "height": 77,
+            "displayHeight": "6' 5\"",
+            "age": 23,
+            "dateOfBirth": "2003-03-02T08:00Z",
+            "birthPlace": {
+              "city": "Louisville",
+              "state": "KY",
+              "country": "USA"
+            },
+            "college": {
+              "id": "2132",
+              "guid": "2a9e6a6d-aa16-3525-a5f4-2aee8a1a77e6",
+              "mascot": "Bearcats",
+              "name": "Cincinnati",
+              "shortName": "Cincinnati",
+              "abbrev": "CIN",
+              "logos": [
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500/2132.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "default"
+                  ],
+                  "lastUpdated": "2025-12-23T01:44Z"
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500-dark/2132.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "dark"
+                  ],
+                  "lastUpdated": "2025-12-23T01:44Z"
+                }
+              ]
+            },
+            "slug": "jeff-caldwell",
+            "jersey": "8",
+            "position": {
+              "id": "1",
+              "name": "Wide Receiver",
+              "displayName": "Wide Receiver",
+              "abbreviation": "WR",
+              "leaf": true,
+              "parent": {
+                "id": "70",
+                "name": "Offense",
+                "displayName": "Offense",
+                "abbreviation": "OFF",
+                "leaf": false
+              }
+            },
+            "experience": {
+              "years": 0
+            },
+            "status": {
+              "id": "13",
+              "name": "Day-To-Day",
+              "type": "day-to-day",
+              "abbreviation": "Day-To-Day"
+            }
+          },
+          {
+            "id": "4431534",
+            "uid": "s:20~l:28~a:4431534",
+            "guid": "70770eeb-c10a-32a9-a2b3-6ed87c761f56",
+            "firstName": "Ethan",
+            "lastName": "Downs",
+            "fullName": "Ethan Downs",
+            "displayName": "Ethan Downs",
+            "shortName": "E. Downs",
+            "weight": 263,
+            "displayWeight": "263 lbs",
+            "height": 76,
+            "displayHeight": "6' 4\"",
+            "age": 23,
+            "dateOfBirth": "2002-10-13T07:00Z",
+            "birthPlace": {
+              "city": "Weatherford",
+              "state": "OK",
+              "country": "USA"
+            },
+            "college": {
+              "id": "201",
+              "guid": "5c89e0cf-7ac7-3621-a83e-48a835ee34d1",
+              "mascot": "Sooners",
+              "name": "Oklahoma",
+              "shortName": "Oklahoma",
+              "abbrev": "OU",
+              "logos": [
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500/201.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "default"
+                  ],
+                  "lastUpdated": "2025-12-19T23:48Z"
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500-dark/201.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "dark"
+                  ],
+                  "lastUpdated": "2025-12-19T23:47Z"
+                }
+              ]
+            },
+            "slug": "ethan-downs",
+            "jersey": "40",
+            "position": {
+              "id": "30",
+              "name": "Linebacker",
+              "displayName": "Linebacker",
+              "abbreviation": "LB",
+              "leaf": true,
+              "parent": {
+                "id": "71",
+                "name": "Defense",
+                "displayName": "Defense",
+                "abbreviation": "DEF",
+                "leaf": false
+              }
+            },
+            "experience": {
+              "years": 1
+            },
+            "contract": {
+              "optionType": 0,
+              "salary": 515000,
+              "bonus": 0,
+              "yearsRemaining": 0,
+              "signedThrough": 2026,
+              "season": {
+                "year": 2026,
+                "startDate": "2026-08-06T07:00Z",
+                "endDate": "2027-02-16T07:59Z"
+              },
+              "active": true
+            },
+            "status": {
+              "id": "13",
+              "name": "Day-To-Day",
+              "type": "day-to-day",
+              "abbreviation": "Day-To-Day"
+            }
+          }
+        ]
+      },
+      {
+        "position": "suspended",
+        "items": []
+      },
+      {
+        "position": "practiceSquad",
+        "items": [
+          {
+            "id": "5093923",
+            "uid": "s:20~l:28~a:5093923",
+            "guid": "34c7d591-aa63-39eb-8c0c-6f510119b467",
+            "firstName": "Andrew",
+            "lastName": "Armstrong",
+            "fullName": "Andrew Armstrong",
+            "displayName": "Andrew Armstrong",
+            "shortName": "A. Armstrong",
+            "weight": 210,
+            "displayWeight": "210 lbs",
+            "height": 76,
+            "displayHeight": "6' 4\"",
+            "age": 25,
+            "dateOfBirth": "2000-10-31T08:00Z",
+            "birthPlace": {
+              "city": "Dallas",
+              "state": "TX",
+              "country": "USA"
+            },
+            "college": {
+              "id": "8",
+              "guid": "54db9ad2-a897-3768-ae50-f0390c0b5f03",
+              "mascot": "Razorbacks",
+              "name": "Arkansas",
+              "shortName": "Arkansas",
+              "abbrev": "ARK",
+              "logos": [
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500/8.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "default"
+                  ],
+                  "lastUpdated": "2025-12-19T23:48Z"
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500-dark/8.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "dark"
+                  ],
+                  "lastUpdated": "2025-12-19T23:47Z"
+                }
+              ]
+            },
+            "slug": "andrew-armstrong",
+            "jersey": "85",
+            "position": {
+              "id": "1",
+              "name": "Wide Receiver",
+              "displayName": "Wide Receiver",
+              "abbreviation": "WR",
+              "leaf": true,
+              "parent": {
+                "id": "70",
+                "name": "Offense",
+                "displayName": "Offense",
+                "abbreviation": "OFF",
+                "leaf": false
+              }
+            },
+            "experience": {
+              "years": 1
+            },
+            "status": {
+              "id": "29",
+              "name": "Practice Squad",
+              "type": "practice-squad",
+              "abbreviation": "Practice Squad"
+            }
+          },
+          {
+            "id": "4605841",
+            "uid": "s:20~l:28~a:4605841",
+            "guid": "f06e068f-d417-33b2-943f-5dbdba59c32e",
+            "firstName": "Nathan",
+            "lastName": "Carter",
+            "fullName": "Nathan Carter",
+            "displayName": "Nathan Carter",
+            "shortName": "N. Carter",
+            "weight": 202,
+            "displayWeight": "202 lbs",
+            "height": 70,
+            "displayHeight": "5' 10\"",
+            "age": 24,
+            "dateOfBirth": "2002-05-22T07:00Z",
+            "birthPlace": {
+              "city": "Rochester",
+              "state": "NY",
+              "country": "USA"
+            },
+            "college": {
+              "id": "127",
+              "guid": "09d12526-1ba9-3567-8afe-2a79cd6ea331",
+              "mascot": "Spartans",
+              "name": "Michigan State",
+              "shortName": "Michigan St",
+              "abbrev": "MSU",
+              "logos": [
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500/127.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "default"
+                  ],
+                  "lastUpdated": "2025-12-23T01:44Z"
+                },
+                {
+                  "href": "https://a.espncdn.com/i/teamlogos/ncaa/500-dark/127.png",
+                  "width": 500,
+                  "height": 500,
+                  "alt": "",
+                  "rel": [
+                    "full",
+                    "dark"
+                  ],
+                  "lastUpdated": "2026-01-05T20:05Z"
+                }
+              ]
+            },
+            "slug": "nathan-carter",
+            "position": {
+              "id": "9",
+              "name": "Running Back",
+              "displayName": "Running Back",
+              "abbreviation": "RB",
+              "leaf": true,
+              "parent": {
+                "id": "70",
+                "name": "Offense",
+                "displayName": "Offense",
+                "abbreviation": "OFF",
+                "leaf": false
+              }
+            },
+            "experience": {
+              "years": 2
+            },
+            "status": {
+              "id": "29",
+              "name": "Practice Squad",
+              "type": "practice-squad",
+              "abbreviation": "Practice Squad"
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

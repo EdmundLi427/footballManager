@@ -6,11 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Football Manager** is a monorepo for NFL fantasy football data management. Data flows through the modules in this order:
 
-`azure/` (fetch injury news → blob JSON) and `etl/` (clean raw CSVs locally) feed `databricks/` (Spark ingestion into Delta Lake), which `data-service/` exposes read-only via MCP/SQL, which `webapp/` queries through a chat UI.
+`azure/` (fetch ESPN + injury news → raw blob JSON) feeds `databricks/` (Spark ingestion into Delta Lake), which `data-service/` exposes read-only via MCP/SQL, which `webapp/` queries through a chat UI.
 
-- `azure/`: Azure Functions (Node.js v4) – fetches injury news every 6 hours via FantasyPros API and stores JSON snapshots to Azure Blob Storage
-- `etl/`: Data cleaning notebooks (Python/Jupyter) – ingests raw NFL league data, cleans and standardizes it, writes cleaned CSVs to local disk (does **not** write to Delta Lake itself)
-- `databricks/`: PySpark/Databricks notebooks – the actual Delta Lake writer. Reads the blob JSON from `azure/` and raw/cleaned CSVs, writes/merges into Delta tables under catalog `football_manager`, schema `nfl`
+- `azure/`: Azure Functions (Node.js v4) – lands raw ESPN game/team/player JSON and FantasyPros injury news snapshots in Azure Blob Storage
+- `etl/`: Data cleaning notebooks (Python/Jupyter) – ingests raw NFL league data, cleans and standardizes it, writes cleaned CSVs to local disk (does **not** feed Delta Lake; the legacy CSV ingest notebook was removed)
+- `databricks/`: PySpark/Databricks notebooks + tested `lib/` – the actual Delta Lake writer. Parses the raw blob JSON from `azure/` and merges into Delta tables under schema `nfl`
 - `data-service/`: Delta Lake MCP server (Python 3.10+) – exposes read-only SQL access to the `nfl` schema's Delta tables via Model Context Protocol
 - `webapp/`: Flask web application (Python 3.10+) – provides a chat UI for querying NFL data via Claude and the `data-service` API
 
@@ -20,62 +20,42 @@ Each module is independent with its own dependencies and configuration except `e
 
 ## Module: azure/ (Azure Functions)
 
-**Purpose**: Scheduled workers that ingest NFL data from two sources:
-1. **FantasyPros Injury News** – fetches every 6 hours, stores to blob path `injury/...`
-2. **ESPN Game/Team/Player Data** – three independent timers by volatility tier: teams+players (daily), standings+rosters (daily), schedules+games+game-team-stats (every 6 hours), each writing to a sibling path (`teams/`, `schedules/`, etc.) in the same container.
+**Purpose**: Scheduled workers that land raw NFL data in blob storage:
+1. **FantasyPros Injury News** – every 6 hours, blob path `injury/...`
+2. **ESPN** – three timers by volatility tier: teams+players (daily), standings+rosters (daily), schedules+game summaries (every 6 hours), under `espn/<dataset>/`.
 
-All data lands in one Azure Blob Storage container (deployed as `alsource`, organized by top-level path prefix) as raw JSON snapshots.
+All data lands in one container (`alsource`) as JSON arrays at `{prefix}/{YYYY-MM-DD}/{ISO-timestamp}.json`. **ESPN payloads keep ESPN's own field names/nesting** — Azure only trims unused subtrees (logos, links, leaders). All renaming/typing/parsing happens in `databricks/lib/transforms.py` (see `databricks/TRANSFORMS.md`), so parser bugs can be fixed and replayed over existing blobs. Don't reintroduce field plucking/renaming in Azure.
 
 **Dev**:
 - `npm start` – runs `func start` (local Azure Functions runtime)
-- `npm test` – `node --test test/` (fixture-based unit tests, no network access)
+- `npm test` – `node --test` on `test/lib/*.test.js` (fixture-based, no network)
+- `node scripts/refresh-espn-fixtures.js` – re-records small real ESPN responses into `test/fixture/espn/` and the matching landing payloads into `databricks/tests/fixtures/espn/` (the cross-module contract; a diff = ESPN schema drift). Also records `databricks/tests/fixtures/fantasypros/injury_news.json` using `FANTASY_PRO_API_KEY` from env or `local.settings.json` (never logged; skipped if absent)
 
 **Key files**:
-- `src/functions/newsTrigger.js` – FantasyPros injury news, every 6h (cron: `0 0 */6 * * *`)
-  - Uses shared `gameDataStorage.js` helper module (reused by all 3 new functions)
-- `src/functions/teamsPlayersTrigger.js` – ESPN teams + players (season/bio-level), daily at 06:15 UTC
-  - Teams: 1 API call, ~32 records
-  - Players: paginated, current season only (current-year athlete index)
-- `src/functions/standingsRostersTrigger.js` – ESPN standings + rosters (weekly-level), daily at 08:30 UTC
-  - Standings: 1 API call, deduped by team/season
-  - Rosters: 32 parallel calls (one per team), bounded concurrency (default 5)
-  - Partial-failure handling: uploads what succeeded if ≥1 roster call fails
-- `src/functions/gameDataTrigger.js` – ESPN schedules + games + game-team-stats (per-game-level), every 6h
-  - Schedules: 32 parallel calls, deduped by `game_id`
-  - Target-games filter: selects only `completed === false` OR recently-completed (trailing 3 days) games to avoid re-fetching ancient data
-  - Games + game-team-stats: parallel fetch of target game summaries, plucks header/boxscore per game
-  - Partial-failure handling: uploads what succeeded; fails only if all datasets completely failed
-- `src/lib/espnClient.js` – shared retry/concurrency/season helpers
-  - `getCurrentSeasonYear()` – stateless NFL season year resolver
-  - `fetchWithRetry()` – retry with linear backoff
-  - `mapWithConcurrency()` – bounded-concurrency batching (no new dependency)
-  - `paginateEspnEndpoint()` – handles ESPN's pageCount pagination
-- `src/lib/espnAssemble.js` – pure data transformation functions (fixture-testable)
-  - `dedupeSchedulesByGameId()` – game deduplication across team schedules
-  - `pluckGameHeader()` / `pluckBoxscoreTeamStats()` – JSON plucking from `/summary` responses
-  - `selectTargetGames()` – filters schedule to in-progress/recently-completed games
-- `src/lib/gameDataStorage.js` – shared blob upload helpers (retry-free wrapper around SDK)
-  - `buildBlobName()` – path construction (`{prefix}/{YYYY-MM-DD}/{ISO-timestamp}.json`)
-  - `uploadJsonBlob()` – container-initialized upload with proper content-type headers
-  - `getStorageInfo()` – logging helper
-- `package.json` – dependencies: `@azure/functions`, `@azure/storage-blob`
-- `host.json` – Azure Functions v2.0 runtime config
+- `src/functions/newsTrigger.js` – FantasyPros injury news, every 6h → `injury/`
+- `src/functions/teamsPlayersTrigger.js` – daily 06:15 UTC → `espn/teams/`, `espn/players/` (core v3 athlete index, paginated; includes retired players)
+- `src/functions/standingsRostersTrigger.js` – daily 08:30 UTC → `espn/standings/` (one record: `{season, children}`), `espn/rosters/` (one record per team, 32 calls, bounded concurrency, partial-failure tolerant)
+- `src/functions/gameDataTrigger.js` – every 6h → `espn/schedules/` (raw events from 32 team schedules, deduped by id) and `espn/game_summaries/` (one `{game_id, header, gameInfo, boxscore.teams}` per targeted game)
+- `src/lib/espnAssemble.js` – pure landing builders: `BLOB_PREFIXES`, `buildTeamsLanding`, `buildPlayersLanding`, `buildRosterLanding`, `buildStandingsLanding`, `trimScheduleEvent`, `buildGameSummaryLanding`, `dedupeSchedulesByGameId`, `selectTargetGames` (games that kicked off and are in progress or completed within the trailing window; uses `status.type.completed`)
+- `src/lib/espnClient.js` – `getCurrentSeasonYear()`, `fetchWithRetry()`, `mapWithConcurrency()`, `paginateEspnEndpoint()`
+- `src/lib/gameDataStorage.js` – `buildBlobName()`, `uploadJsonBlob()`, `getStorageInfo()`
 - `local.settings.json` – local dev env (gitignored; contains real API credentials — never commit)
-- `.env.example` – new; documents all env vars (existing + new ESPN-related ones)
-- `test/lib/espnClient.test.js`, `test/lib/espnAssemble.test.js`, `test/lib/gameDataStorage.test.js` – fixture-driven unit tests
+- `test/lib/espnAssemble.test.js` – contract tests: builders on `test/fixture/espn/*` must deep-equal `databricks/tests/fixtures/espn/*`
+
+**ESPN payload quirks (verified live)**: `status.type` is an object (`{name, state, completed, ...}`), not a string; `boxscore.teams[0]` is the **away** team (use `homeAway`); box score paired stats carry real data in `displayValue` (`"9-17"`) while `value` is a ratio or `'-'`; header scores are strings, schedule scores are `{value, displayValue}`; standings live at `children[].standings.entries`.
 
 **Environment variables** (set in `local.settings.json` locally or `.env`):
 - `FANTASY_PRO_API_KEY` – FantasyPros API key (required for news)
 - `NEWS_STORAGE_CONNECTION` – Azure Storage connection string (defaults to `AzureWebJobsStorage` if unset)
-- `ALSOURCE_CONTAINER` – Blob container name (defaults to `alsource`; holds all datasets: `injury/`, `teams/`, etc.)
+- `ALSOURCE_CONTAINER` – Blob container name (defaults to `alsource`)
 - `ESPN_FETCH_CONCURRENCY` – max in-flight ESPN calls (default 5)
 - `ESPN_FETCH_RETRIES` – retry attempts per call (default 3)
 - `GAME_SUMMARY_TRAILING_DAYS` – look-back window for recently-completed games (default 3)
 - `GAME_SUMMARY_MAX_TARGETS` – safety ceiling on per-run game-summary fetches (default 50)
 
-**Logging**: All functions log via bracketed tags (`[FETCH_START]`, `[API_CALL]`, `[DATA_PARSED]`, `[UPLOAD_START]`, `[UPLOAD_SUCCESS]`, `[STORAGE_INFO]`, `[SUMMARY]`, `[ERROR]`, `[ITEM_ERROR]`, `[DATASET_SUMMARY]`, `[TARGET_GAMES]`). Each invocation returns a `summary` object with per-dataset status, byte counts, and failure accounting.
+**Logging**: bracketed tags (`[FETCH_START]`, `[API_CALL]`, `[DATA_PARSED]`, `[UPLOAD_START]`, `[UPLOAD_SUCCESS]`, `[STORAGE_INFO]`, `[SUMMARY]`, `[ERROR]`, `[ITEM_ERROR]`, `[DATASET_SUMMARY]`, `[TARGET_GAMES]`). Each invocation returns a `summary` object with per-dataset status, byte counts, and failure accounting.
 
-**Convention**: Timer triggers all use NCronTab 6-field syntax. Tier 1/2 daily, Tier 3 every-6-hours (matching project default). All functions throw on fatal errors (never swallow); partial failures are logged/counted in summary but don't fail the invocation unless all datasets are 100% failed.
+**Convention**: Timer triggers use NCronTab 6-field syntax. Functions throw on fatal errors (never swallow); partial failures are logged/counted but don't fail the invocation unless every dataset failed.
 
 ## Module: data-service/ (Delta Lake MCP Server)
 
@@ -117,13 +97,24 @@ All data lands in one Azure Blob Storage container (deployed as `alsource`, orga
 
 ## Module: databricks/ (Delta Lake Ingestion — PySpark)
 
-**Purpose**: The module that actually writes to Delta Lake. Not a `uv` workspace member, no `pyproject.toml`, no CI — these are Databricks notebooks meant to run on a Databricks cluster, not locally via `uv`.
+**Purpose**: The only module that writes the `nfl.*` Delta tables. Notebooks run on a Databricks cluster; the logic lives in a locally tested library. **Column-by-column reference: `databricks/TRANSFORMS.md`.**
 
 **Key files**:
-- `notebooks/ingest_game_data.ipynb` – PySpark Structured Streaming (Auto Loader / `cloudFiles`) that reads raw CSVs from `abfss://alsource@footballmanagerli.dfs.core.azure.net/`, snake_cases columns, and writes Delta tables to `abfss://aldestination@footballmanagerli.dfs.core.azure.net/data/{table}`, registered under catalog `football_manager`, schema `nfl`.
-- `notebooks/ingest_news_data.ipynb` ("Injury to delta table") – reads the injury JSON snapshots that `azure/src/functions/newsTrigger.js` uploads to the `alsource` container's `injury/` path, dedupes per micro-batch, and upserts (merge) into Delta table `nfl.injury_news` (columns: id, player_id, team_id, title, description, impact, author, categories, link, sport_id, created_at, snapshot_at, source_file, ingested_at) using `foreachBatch` + `trigger(availableNow=True)`.
+- `lib/schemas.py` – single source of truth: `*_RAW` Auto Loader read schemas (ESPN field names) and `TABLES[name]` (silver columns/types/comments, `keys`, `source_prefix`, `snapshot_col`). `ESPN_TABLES` = the 7 ESPN tables.
+- `lib/transforms.py` – `parse_<table>(df)`: pure DataFrame → DataFrame, output exactly `TABLES[name].schema`; `with_file_metadata()` adds `_source_file`/`_snapshot_at`; safe casts (`to_long`/`to_double`) so `'-'` becomes NULL under ANSI mode. Spark 3.5+/4.x compatible.
+- `lib/delta_io.py` – `ensure_table()` (DDL generated from `TABLES`, keys `NOT NULL`), `dedupe_latest()`, `upsert_latest()` (MERGE; update only when incoming snapshot is newer), `upsert_batch_fn()` for `foreachBatch`.
+- `notebooks/ingest_game_{teams,players,rosters,standings,schedules,games,team_stats}.ipynb` – identical 4-cell template: `sys.path` → `lib`, `TABLE = schemas.TABLES[...]`, Auto Loader with `TABLE.raw_schema` → `parse_*` → upsert, sanity check. Data at `aldestination/silver/<table>`, checkpoints `_checkpoints/silver_<table>`.
+- `notebooks/ingest_news_data.ipynb` – same pattern for `nfl.injury_news` (keeps its original location, checkpoint and `source_file`/`snapshot_at`/`ingested_at` column names).
+- `notebooks/reset_espn_tables.ipynb` – destructive, guarded by widget `confirm=RESET`: drops the 7 ESPN tables + data/checkpoint dirs (incl. pre-`espn/` paths). Never touches `injury_news`.
 
-**Convention**: This is the only module that writes to the `football_manager.nfl` Delta catalog that `data-service/` reads from — if data isn't showing up in `data-service` queries, check whether these notebooks have actually been run on a cluster recently, not just whether `azure/`/`etl/` produced fresh source data.
+**Conventions**: snake_case columns; ESPN ids are `STRING`; audit columns `_source_file`, `_snapshot_at`, `_ingested_at`; no schema evolution or NULL-filling of missing columns (that previously hid upstream bugs) — schema changes are deliberate (edit `schemas.py` + `transforms.py` + TRANSFORMS.md, then ALTER or reset/replay).
+
+**Tests** (`databricks/tests/`, run from repo root; root `pyproject.toml` sets pytest `pythonpath = ["databricks"]`):
+- `uv run pytest databricks/tests -m "not spark"` – static: table definitions, DDL, notebook structure
+- `uv run pytest databricks/tests -m spark` – parsers on real ESPN fixtures (golden values from game 401872931) + Delta merge semantics; needs Java 17 (skips if absent)
+- Fixtures in `tests/fixtures/espn/` are generated by `azure/scripts/refresh-espn-fixtures.js` — don't hand-edit them.
+
+If data isn't showing up in `data-service`, check whether these notebooks have run recently, not just whether `azure/` produced fresh blobs.
 
 ## Module: webapp/ (Flask Chat UI)
 
@@ -160,7 +151,8 @@ These are real gaps in the repo today, not intended behavior — call them out r
 ## Testing
 
 Per-module commands (see "Known issues" above for what currently doesn't work):
-- **azure/**: `cd azure && npm test` (placeholder only)
+- **azure/**: `cd azure && npm test` (landing builder + contract tests)
+- **databricks/**: `uv run pytest databricks/tests` (Spark tests need Java 17)
 - **data-service/**: `uv run --directory data-service pytest` (currently fails — pytest not installed)
 - **etl/**: `python etl/tests/test_clean.py` (currently a live ESPN scraper, not a validator)
 - **webapp/**: `uv run --directory webapp pytest` (currently fails — pytest not installed; the test file itself is correct)

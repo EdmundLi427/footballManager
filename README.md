@@ -28,10 +28,9 @@ Data flows through:
    ┌─────────────────────▼──────────────────────┐
    │        Azure Blob Storage                  │
    │  ├─ injury/... (FantasyPros news)         │
-   │  ├─ teams/, players/ (season-level)       │
-   │  ├─ standings/, rosters/ (weekly-level)   │
-   │  └─ schedules/, games/, game-team-stats/  │
-   │     (per-game-level)                      │
+   │  └─ espn/ (raw ESPN JSON):                │
+   │     teams/, players/, standings/,         │
+   │     rosters/, schedules/, game_summaries/ │
    └─────────────────────┬──────────────────────┘
                          │
    ┌─────────────────────┴──────────────────────┐
@@ -134,9 +133,10 @@ All tables include lineage tracking:
 
 - **Season-level data** (teams, players): Daily 06:15 UTC
 - **Weekly-level data** (standings, rosters): Daily 08:30 UTC
-- **Game-level data** (schedules, games, game-team-stats): Every 6 hours
+- **Game-level data** (schedules, game summaries): Every 6 hours
   - Schedules: deduplicated across team APIs
-  - Games & stats: only fetched for in-progress or recently-completed games (configurable trailing window, default 3 days)
+  - Game summaries (→ `nfl.games` + `nfl.game_team_stats`): only fetched for games that have kicked off and are in progress or completed within the trailing window (default 3 days)
+- Transforms from raw ESPN JSON to `nfl.*` tables are documented in [`databricks/TRANSFORMS.md`](databricks/TRANSFORMS.md)
 
 ### Ingestion Pipeline
 

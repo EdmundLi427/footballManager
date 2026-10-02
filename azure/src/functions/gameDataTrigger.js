@@ -1,6 +1,12 @@
 const { app } = require('@azure/functions');
 const { ESPN_SITES, getCurrentSeasonYear, fetchWithRetry, mapWithConcurrency } = require('../lib/espnClient');
-const { dedupeSchedulesByGameId, pluckScheduleFields, pluckGameHeader, pluckBoxscoreTeamStats, selectTargetGames } = require('../lib/espnAssemble');
+const {
+  BLOB_PREFIXES,
+  dedupeSchedulesByGameId,
+  trimScheduleEvent,
+  buildGameSummaryLanding,
+  selectTargetGames,
+} = require('../lib/espnAssemble');
 const { uploadJsonBlob, getStorageInfo } = require('../lib/gameDataStorage');
 
 app.timer('fetchGameData', {
@@ -21,7 +27,7 @@ app.timer('fetchGameData', {
     };
 
     try {
-      context.log('[FETCH_START] Fetching game data (schedules, games, boxscores)');
+      context.log('[FETCH_START] Fetching game data (schedules, game summaries)');
       context.log(`[SEASON_RESOLVED] Season year: ${seasonYear}`);
 
       // Fetch team list
@@ -40,32 +46,9 @@ app.timer('fetchGameData', {
           const scheduleUrl = `${ESPN_SITES.SITE_BASE}/teams/${teamId}/schedule?season=${seasonYear}`;
           const scheduleResp = await fetchWithRetry(scheduleUrl, {}, context);
           const scheduleData = await scheduleResp.json();
-          const events = scheduleData.events || [];
+          const events = (scheduleData.events || []).map(trimScheduleEvent);
 
-          // Extract relevant fields from each game
-          return {
-            teamId,
-            events: events.map((event) => {
-              const competition = event.competitions?.[0] || {};
-              const competitors = competition.competitors || [];
-              const homeTeam = competitors.find((c) => c.homeAway === 'home');
-              const awayTeam = competitors.find((c) => c.homeAway === 'away');
-
-              return {
-                id: event.id,
-                date: competition.date,
-                week: event.week?.number,
-                status: competition.status?.type,
-                completed: competition.status?.type === 'Final',
-                homeTeamId: homeTeam?.team?.id,
-                awayTeamId: awayTeam?.team?.id,
-                homeScore: homeTeam?.score,
-                awayScore: awayTeam?.score,
-                venue: competition.venue?.fullName,
-              };
-            }),
-            error: null,
-          };
+          return { teamId, events, error: null };
         } catch (error) {
           return { teamId, events: [], error: error.message };
         }
@@ -86,13 +69,11 @@ app.timer('fetchGameData', {
       }
 
       const deduplicatedSchedules = dedupeSchedulesByGameId([allSchedules]);
-      // Conform to cleaned schema: extract all fields, add season, team names, handle scores
-      const conformedSchedules = deduplicatedSchedules.map((event) => pluckScheduleFields(event, seasonYear));
       const scheduleStatus = scheduleFailures === teamIds.length ? 'failed' : scheduleFailures > 0 ? 'partial' : 'success';
 
-      context.log(`[DATA_PARSED] Schedules: ${conformedSchedules.length} unique games after deduping and conforming`);
+      context.log(`[DATA_PARSED] Schedules: ${deduplicatedSchedules.length} unique games after deduping`);
 
-      const schedulesUpload = await uploadJsonBlob('schedules', conformedSchedules, context);
+      const schedulesUpload = await uploadJsonBlob(BLOB_PREFIXES.schedules, deduplicatedSchedules, context);
       summary.datasets.schedules = {
         status: scheduleStatus,
         teamFailures: scheduleFailures,
@@ -113,55 +94,48 @@ app.timer('fetchGameData', {
           const summaryResp = await fetchWithRetry(summaryUrl, {}, context);
           const summaryData = await summaryResp.json();
 
-          const gameHeader = pluckGameHeader(summaryData, gameId);
-          const teamStats = pluckBoxscoreTeamStats(summaryData, gameId);
-
-          return { gameId, gameHeader, teamStats, error: null };
+          return { gameId, landing: buildGameSummaryLanding(summaryData, gameId), error: null };
         } catch (error) {
-          return { gameId, gameHeader: null, teamStats: [], error: error.message };
+          return { gameId, landing: null, error: error.message };
         }
       });
 
-      // Aggregate games and game-team-stats, track failures
-      const gamesPayload = [];
-      const gameTeamStatsPayload = [];
+      // Aggregate game summaries, track failures
+      const gameSummariesPayload = [];
       let gameSummaryFailures = 0;
 
       for (const result of summaryResults) {
         if (result.error) {
-          summary.failures.push({ dataset: 'games', gameId: result.gameId, error: result.error });
+          summary.failures.push({ dataset: 'game_summaries', gameId: result.gameId, error: result.error });
           gameSummaryFailures++;
           context.log(`[ITEM_ERROR] Summary fetch failed for game ${result.gameId}: ${result.error}`);
         } else {
-          gamesPayload.push(result.gameHeader);
-          gameTeamStatsPayload.push(...result.teamStats);
+          gameSummariesPayload.push(result.landing);
         }
       }
 
-      const gamesStatus = gameSummaryFailures === targetGameIds.length ? 'failed' : gameSummaryFailures > 0 ? 'partial' : 'success';
+      const summariesStatus =
+        targetGameIds.length > 0 && gameSummaryFailures === targetGameIds.length
+          ? 'failed'
+          : gameSummaryFailures > 0
+            ? 'partial'
+            : 'success';
 
-      context.log(`[DATASET_SUMMARY] Games: ${gamesPayload.length} games, ${gameSummaryFailures} failures`);
-      context.log(`[DATASET_SUMMARY] Game team stats: ${gameTeamStatsPayload.length} team records`);
+      context.log(`[DATASET_SUMMARY] Game summaries: ${gameSummariesPayload.length} games, ${gameSummaryFailures} failures`);
 
-      const gamesUpload = await uploadJsonBlob('games', gamesPayload, context);
-      summary.datasets.games = {
-        status: gamesStatus,
-        count: gamesPayload.length,
-        itemFailures: gameSummaryFailures,
-        blobName: gamesUpload.blobName,
-        bytes: gamesUpload.bytes,
-      };
-      summary.totalUploadedBytes += gamesUpload.bytes;
-
-      const gameTeamStatsUpload = await uploadJsonBlob('game-team-stats', gameTeamStatsPayload, context);
-      summary.datasets['game-team-stats'] = {
-        status: gamesStatus,
-        count: gameTeamStatsPayload.length,
-        itemFailures: gameSummaryFailures,
-        blobName: gameTeamStatsUpload.blobName,
-        bytes: gameTeamStatsUpload.bytes,
-      };
-      summary.totalUploadedBytes += gameTeamStatsUpload.bytes;
+      if (gameSummariesPayload.length > 0) {
+        const summariesUpload = await uploadJsonBlob(BLOB_PREFIXES.gameSummaries, gameSummariesPayload, context);
+        summary.datasets.game_summaries = {
+          status: summariesStatus,
+          count: gameSummariesPayload.length,
+          itemFailures: gameSummaryFailures,
+          blobName: summariesUpload.blobName,
+          bytes: summariesUpload.bytes,
+        };
+        summary.totalUploadedBytes += summariesUpload.bytes;
+      } else {
+        summary.datasets.game_summaries = { status: summariesStatus, count: 0, itemFailures: gameSummaryFailures };
+      }
 
       // Determine overall status: fail only if all datasets failed
       const allStatuses = Object.values(summary.datasets).map((ds) => ds.status);

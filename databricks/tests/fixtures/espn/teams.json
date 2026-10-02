@@ -1,0 +1,47 @@
+[
+  {
+    "abbreviation": "ARI",
+    "alternateColor": "ffffff",
+    "color": "a40227",
+    "displayName": "Arizona Cardinals",
+    "id": "22",
+    "isActive": true,
+    "isAllStar": false,
+    "location": "Arizona",
+    "name": "Cardinals",
+    "nickname": "Cardinals",
+    "shortDisplayName": "Cardinals",
+    "slug": "arizona-cardinals",
+    "uid": "s:20~l:28~t:22"
+  },
+  {
+    "abbreviation": "ATL",
+    "alternateColor": "000000",
+    "color": "a71930",
+    "displayName": "Atlanta Falcons",
+    "id": "1",
+    "isActive": true,
+    "isAllStar": false,
+    "location": "Atlanta",
+    "name": "Falcons",
+    "nickname": "Falcons",
+    "shortDisplayName": "Falcons",
+    "slug": "atlanta-falcons",
+    "uid": "s:20~l:28~t:1"
+  },
+  {
+    "abbreviation": "BAL",
+    "alternateColor": "000000",
+    "color": "29126f",
+    "displayName": "Baltimore Ravens",
+    "id": "33",
+    "isActive": true,
+    "isAllStar": false,
+    "location": "Baltimore",
+    "name": "Ravens",
+    "nickname": "Ravens",
+    "shortDisplayName": "Ravens",
+    "slug": "baltimore-ravens",
+    "uid": "s:20~l:28~t:33"
+  }
+]

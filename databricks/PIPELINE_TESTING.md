@@ -1,220 +1,65 @@
-# Pipeline Testing Guide
+# Pipeline testing
 
-Test the entire flow from Azure Functions → Databricks → Delta → data-service
+Azure Functions → blob (`alsource/espn/*`, `alsource/injury/`) → Databricks notebooks → `nfl.*` Delta → data-service.
 
-## Layer 1: Unit Tests (Local, Fast)
+## 1. Azure landing builders (local, ~5s)
+
 ```bash
-cd /Users/edmundli/Documents/Projects/footballManager/azure
-npm test                                    # 33 tests, validates Azure function outputs
+cd azure && npm test
 ```
 
-Verifies: Azure functions output correct snake_case field names and values.
+- Each builder in `src/lib/espnAssemble.js`, applied to a recorded ESPN response in `test/fixture/espn/`, must produce **exactly** the payload in `databricks/tests/fixtures/espn/`. Those same payloads are the inputs to the Databricks parser tests, so this is the cross-module contract.
+- `selectTargetGames` works on real ESPN status objects.
 
----
+## 2. Databricks static tests (local, <1s)
 
-## Layer 2: Schema Contract Tests (Local)
 ```bash
-uv run --directory databricks pytest databricks/tests/test_schema_contract.py -v
-uv run --directory databricks pytest databricks/tests/test_pipeline_e2e.py -v -m "not spark"
+uv run pytest databricks/tests -m "not spark"
 ```
 
-Verifies:
-- Azure output schema matches Databricks notebook input schemas
-- Conform functions produce expected output types
-- Pair-splitting, time parsing, null logic work correctly
-- Audit columns present in all tables
+Checks table definitions (keys NOT NULL, snake_case, audit columns, generated DDL) and notebook structure: shared `lib` used, no NULL-filling, no hardcoded user paths or credentials.
 
----
+## 3. Databricks Spark tests (local, ~1-2 min, Java 17)
 
-## Layer 3: Spark Integration Tests (Requires Java 17)
 ```bash
-uv run --directory databricks pytest databricks/tests/test_pipeline_e2e.py -v -m spark
-uv run --directory databricks pytest databricks/tests/test_transforms_integration.py -v -m spark
+brew install openjdk@17   # once; or point JAVA_HOME at any JDK 17
+uv run pytest databricks/tests -m spark
 ```
 
-Verifies:
-- Conform functions work with PySpark DataFrames
-- Merge semantics correct on composite keys
-- Deduplication works per game/game-team combo
+- Every `parse_<table>` on the real fixtures returns exactly `TABLES[table].schema`, with non-null unique keys.
+- Golden values from DEN @ KC 2026 wk 1 (event 401872931). For example, KC is `home`, 9/17 on third down, 15/27 passing, `possession_seconds = 2022`, final score 31-10. The upcoming game has NULL scores.
+- Merge semantics: insert, newer snapshot wins, older ignored, replay is idempotent, in-batch duplicates resolved, null key rejected.
 
----
+CI (`.github/workflows/databricks.yml`) runs layers 2 and 3 plus ruff on Python 3.10–3.12. `azure.yml` runs layer 1, and also runs when the shared fixtures change.
 
-## Layer 4: Databricks Cluster Integration Test (Manual)
+## 4. Schema drift check (manual, needs network)
 
-### 4a. Deploy Test Data to Blob
 ```bash
-# Upload sample JSON files from fixtures to test paths
-az storage blob upload-batch \
-  -s databricks/tests/fixtures \
-  -d alsource \
-  --account-name footballmanagerli \
-  --destination-path test/schedules
+node azure/scripts/refresh-espn-fixtures.js
+git diff azure/test/fixture/espn databricks/tests/fixtures/espn
+cd azure && npm test && cd .. && uv run pytest databricks/tests
 ```
 
-### 4b. Run Notebooks on Cluster
-1. Create a test workspace in Databricks
-2. Clone the repo or upload notebooks
-3. Update notebook paths to read from `test/schedules`, `test/games`, etc.
-4. Run: `ingest_game_schedules.ipynb` → check `nfl.schedules_test` table
-5. Verify output schema and row count
+Re-records small real ESPN responses. A diff in the raw fixtures means ESPN changed its payload, and the tests tell you whether the builders and parsers still cope. If a golden value changes because ESPN corrected a stat, update the assertion.
 
-### 4c. Validate Delta Tables
-```sql
--- In Databricks SQL
-DESCRIBE nfl.schedules_test;
-SELECT COUNT(*), COUNT(DISTINCT game_id) FROM nfl.schedules_test;
-SELECT game_id, week, home_team, away_team, home_score FROM nfl.schedules_test LIMIT 5;
-```
+## 5. On the cluster (manual)
 
-Expected:
-- Columns: season, game_id, date, week, home_team_id, home_team, home_score, etc. (all snake_case)
-- Data types: INT, STRING, INT (not STRUCT or JSON)
-- Scores are integers (not 0 for unplayed games)
+1. Deploy `azure/` and confirm blobs appear under `alsource/espn/{teams,players,rosters,standings,schedules,game_summaries}/YYYY-MM-DD/`.
+2. Run `notebooks/reset_espn_tables.ipynb` (`confirm=RESET`). This is only needed when the schema changes; see TRANSFORMS.md, "Changing a transform".
+3. Run each `notebooks/ingest_game_*.ipynb`. The last cell asserts row count equals distinct key count.
+4. Spot-check:
+   ```sql
+   SELECT * FROM nfl.game_team_stats WHERE game_id = '401872931';   -- KC home, 9/17 3rd down
+   SELECT season_type, week, COUNT(*) FROM nfl.schedules GROUP BY ALL ORDER BY ALL;
+   SELECT conference, COUNT(*) FROM nfl.standings GROUP BY ALL;    -- 16 / 16
+   ```
+5. From the webapp or data-service, `describe_table("nfl.schedules")` shows the snake_case columns.
 
----
+## Troubleshooting
 
-## Layer 5: End-to-End Test (Full Deployment)
-
-### 5a. Run Azure Function
-```bash
-# Trigger the Azure function (or wait for scheduled run)
-# Monitor Application Insights for logs
-# Verify blobs uploaded to alsource/schedules/, alsource/games/, etc.
-```
-
-### 5b. Run Databricks Notebooks
-```sql
--- In Databricks, run:
-%run /Repos/.../ingest_game_schedules.ipynb
-%run /Repos/.../ingest_game_games.ipynb
-%run /Repos/.../ingest_game_team_stats.ipynb
-```
-
-### 5c. Query data-service
-```python
-# In webapp shell or Python REPL
-from data_service.server import query
-
-result = query("SELECT COUNT(*) as cnt FROM nfl.schedules WHERE week = 1")
-print(result)  # Should show row count from latest Azure run
-```
-
-### 5d. Smoke Test in Webapp
-```
-# Start webapp
-uv run --directory webapp python app.py
-
-# Query via chatbot
-User: "How many games in week 1?"
-Expected: Chatbot reads nfl.schedules, counts rows where week=1
-```
-
----
-
-## Troubleshooting the Pipeline
-
-### Azure → Blob
-```bash
-# Check blob contents
-az storage blob download \
-  --account-name footballmanagerli \
-  -c alsource \
-  -n schedules/2026-10-01/1234567890.json \
-  -o json | jq '.' | head -50
-```
-
-**Expected format:**
-```json
-[
-  {
-    "season": 2026,
-    "game_id": "game_401547439",
-    "date": "2026-10-01T20:20Z",
-    "week": 5,
-    "home_team_id": "12",
-    "home_team": "Kansas City Chiefs",
-    "home_score": 21,
-    ...
-  }
-]
-```
-
-### Blob → Databricks Read
-```sql
--- In Databricks, debug the cloudFiles read
-%python
-from pyspark.sql import functions as F
-
-raw = (spark.readStream
-    .format("cloudFiles")
-    .option("cloudFiles.format", "json")
-    .option("multiLine", "true")
-    .load("abfss://alsource@footballmanagerli.dfs.core.windows.net/schedules/")
-)
-
-# Display schema
-raw.printSchema()
-raw.limit(1).display()
-```
-
-**Expected:** JSON is readable, fields match input schema (season, game_id, date, etc.)
-
-### Conform Function Output
-```sql
-%python
-from transforms import conform_schedules
-
-conformed = conform_schedules(raw)
-conformed.printSchema()
-conformed.limit(1).display()
-```
-
-**Expected:** Output schema matches target_schemas['schedules']
-
-### Delta Merge
-```sql
--- Check if merge succeeded
-DESCRIBE EXTENDED nfl.schedules;
-
--- Look for:
--- Location: abfss://...
--- Provider: delta
--- Last modified: recent timestamp
-```
-
----
-
-## Validation Checklist
-
-- [ ] Azure tests pass: `npm test` (33/33)
-- [ ] Schema contract tests pass: pytest `test_schema_contract.py`
-- [ ] E2E tests pass (no Spark): pytest `test_pipeline_e2e.py -m "not spark"`
-- [ ] E2E Spark tests pass: pytest `test_pipeline_e2e.py -m spark` (requires Java 17)
-- [ ] Blob JSON validates: inspect with Azure CLI
-- [ ] Databricks notebook runs without errors
-- [ ] Delta table schema matches target_schemas
-- [ ] Row counts match expectations
-- [ ] data-service can query table and see columns
-- [ ] Webapp chatbot can query NFL data
-
----
-
-## When to Run Each Layer
-
-| Scenario | Layers to Run |
-|----------|---------------|
-| After changing Azure pluck functions | 1, 2 |
-| After changing conform functions | 1, 2, 3 |
-| Before deploying to cluster | 1, 2, 3 |
-| After deploying notebooks to cluster | 4a, 4b, 4c |
-| After full deployment | 5a, 5b, 5c, 5d |
-
----
-
-## Continuous Testing
-
-Add to CI pipeline (`.github/workflows/databricks.yml`):
-1. Run Azure tests
-2. Run schema contract tests (always)
-3. Run Spark tests (if Java 17 available)
-4. (Manual step) Deploy test data, run notebooks, validate
+| Symptom | Likely cause |
+|---|---|
+| Merge fails with a NOT NULL / null constraint error | A blob has a record without the key field: ESPN shape changed or Azure wrote a partial record. Re-run the drift check. |
+| Table exists but a column is all NULL | The raw schema doesn't match ESPN anymore. Read the blob (`spark.read.json(path).printSchema()`), then update `*_RAW` and the parser. |
+| `CREATE TABLE` fails with a schema mismatch at LOCATION | Old data exists at the silver path. Run `reset_espn_tables`. |
+| No new rows | Check that Azure is writing under `espn/` (not the old `schedules/` and similar prefixes) and that the notebook checkpoint isn't stale. |

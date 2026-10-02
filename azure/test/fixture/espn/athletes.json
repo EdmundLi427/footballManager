@@ -1,0 +1,87 @@
+{
+  "count": 4081,
+  "pageIndex": 1,
+  "pageSize": 3,
+  "pageCount": 1361,
+  "items": [
+    {
+      "id": "139",
+      "uid": "s:20~l:28~a:139",
+      "guid": "2a94aa92-6af8-8189-5e8d-c88d0a76dde9",
+      "firstName": "John",
+      "lastName": "Kasay",
+      "fullName": "John Kasay",
+      "displayName": "John Kasay",
+      "slug": "john-kasay",
+      "shortName": "J. Kasay",
+      "weight": 210,
+      "displayWeight": "210 lbs",
+      "height": 70,
+      "displayHeight": "5' 10\"",
+      "age": 56,
+      "dateOfBirth": "1969-10-27T08:00Z",
+      "birthPlace": {
+        "city": "Athens",
+        "state": "GA"
+      },
+      "experience": {
+        "years": 22
+      },
+      "jersey": "2",
+      "hand": {
+        "type": "RIGHT",
+        "abbreviation": "R",
+        "displayValue": "Right"
+      },
+      "active": false
+    },
+    {
+      "id": "286",
+      "uid": "s:20~l:28~a:286",
+      "guid": "6c644cd7-cd73-890b-d8b2-8bcbbe9edb5f",
+      "firstName": "Jason",
+      "lastName": "Hanson",
+      "fullName": "Jason Hanson",
+      "displayName": "Jason Hanson",
+      "slug": "jason-hanson",
+      "shortName": "J. Hanson",
+      "weight": 190,
+      "displayWeight": "190 lbs",
+      "height": 72,
+      "displayHeight": "6' 0\"",
+      "age": 56,
+      "dateOfBirth": "1970-06-17T07:00Z",
+      "experience": {
+        "years": 21
+      },
+      "jersey": "4",
+      "active": false
+    },
+    {
+      "id": "964",
+      "uid": "s:20~l:28~a:964",
+      "guid": "b2af036c-e8b9-6fe8-ca18-81cf019fd350",
+      "firstName": "Ray",
+      "lastName": "Lewis",
+      "fullName": "Ray Lewis",
+      "displayName": "Ray Lewis",
+      "slug": "ray-lewis",
+      "shortName": "R. Lewis",
+      "weight": 240,
+      "displayWeight": "240 lbs",
+      "height": 73,
+      "displayHeight": "6' 1\"",
+      "age": 51,
+      "dateOfBirth": "1975-05-15T07:00Z",
+      "birthPlace": {
+        "city": "Bartow",
+        "state": "FL"
+      },
+      "experience": {
+        "years": 17
+      },
+      "jersey": "52",
+      "active": false
+    }
+  ]
+}
