@@ -191,17 +191,4 @@ GitHub Actions workflows are configured per service:
 - **Credentials**: Store in environment variables or secure vaults; never commit real values
 - **Data**: Raw and cleaned CSV files in `etl/data/` are gitignored (large, regenerated)
 
-## License
-
-(Add your license here)
-
-## Support
-
-For questions or issues:
-- Check the module-specific `README.md` files
-- Review `CLAUDE.md` for codebase documentation
-- Open an issue on GitHub
-
----
-
 **Last updated**: 2026-09-29
