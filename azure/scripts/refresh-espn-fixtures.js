@@ -85,7 +85,14 @@ async function main() {
   const summary = {
     header: summaryFull.header,
     gameInfo: summaryFull.gameInfo,
-    boxscore: { teams: summaryFull.boxscore.teams },
+    boxscore: {
+      teams: summaryFull.boxscore.teams,
+      // Two athletes per stat group keeps the fixture small but covers players in several groups.
+      players: summaryFull.boxscore.players.map((team) => ({
+        ...team,
+        statistics: team.statistics.map((group) => ({ ...group, athletes: group.athletes.slice(0, 2) })),
+      })),
+    },
   };
 
   write(RAW_DIR, 'teams', teams);

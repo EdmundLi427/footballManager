@@ -59,6 +59,23 @@ test('landing builders keep the ESPN fields the parsers read', async (t) => {
     }
   });
 
+  await t.test('game summary keeps player box score groups with keys aligned to stats', () => {
+    const [landing] = loadLanding('game_summaries');
+    assert.strictEqual(landing.boxscore.players.length, 2);
+    for (const team of landing.boxscore.players) {
+      assert.ok(team.team.id);
+      const groups = team.statistics.map((group) => group.name);
+      assert.ok(['passing', 'rushing', 'receiving'].every((name) => groups.includes(name)));
+      for (const group of team.statistics) {
+        for (const entry of group.athletes) {
+          assert.ok(entry.athlete.id);
+          assert.strictEqual(entry.stats.length, group.keys.length);
+          assert.ok(!('headshot' in entry.athlete));
+        }
+      }
+    }
+  });
+
   await t.test('schedule events keep status object and competitor scores', () => {
     for (const event of loadLanding('schedules')) {
       const competition = event.competitions[0];

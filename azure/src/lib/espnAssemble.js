@@ -115,8 +115,8 @@ function trimScheduleEvent(event) {
 }
 
 /**
- * `/summary?event={id}` response -> the header, venue and team box score subtrees.
- * One record feeds both nfl.games and nfl.game_team_stats.
+ * `/summary?event={id}` response -> the header, venue, team and player box score subtrees.
+ * One record feeds nfl.games, nfl.game_team_stats and nfl.player_game_stats.
  */
 function buildGameSummaryLanding(summaryData, gameId) {
   const header = summaryData.header || {};
@@ -151,6 +151,17 @@ function buildGameSummaryLanding(summaryData, gameId) {
         homeAway: teamData.homeAway,
         team: pick(teamData.team, TEAM_REF_KEYS),
         statistics: teamData.statistics || [],
+      })),
+      players: (summaryData.boxscore?.players || []).map((teamData) => ({
+        team: pick(teamData.team, TEAM_REF_KEYS),
+        statistics: (teamData.statistics || []).map((group) => ({
+          name: group.name,
+          keys: group.keys,
+          athletes: (group.athletes || []).map((entry) => ({
+            athlete: pick(entry.athlete, ['id', 'displayName', 'jersey']),
+            stats: entry.stats,
+          })),
+        })),
       })),
     },
   };

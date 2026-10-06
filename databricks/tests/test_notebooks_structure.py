@@ -28,6 +28,7 @@ def test_expected_notebooks_exist():
         "ingest_game_schedules",
         "ingest_game_games",
         "ingest_game_team_stats",
+        "ingest_game_player_stats",
         "ingest_news_data",
         "reset_espn_tables",
     }

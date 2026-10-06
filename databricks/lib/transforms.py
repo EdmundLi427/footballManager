@@ -358,6 +358,142 @@ def parse_game_team_stats(df: DataFrame) -> DataFrame:
     return _finish(teams.select(*cols), TABLES["game_team_stats"])
 
 
+# Player box score stats: silver column -> (ESPN stat group, key). Keys repeat across groups
+# ('interceptions' is thrown in passing, caught in interceptions), so lookups are per group.
+_PLAYER_LONGS = {
+    "passing_yards": ("passing", "passingYards"),
+    "passing_tds": ("passing", "passingTouchdowns"),
+    "interceptions_thrown": ("passing", "interceptions"),
+    "rushing_attempts": ("rushing", "rushingAttempts"),
+    "rushing_yards": ("rushing", "rushingYards"),
+    "rushing_tds": ("rushing", "rushingTouchdowns"),
+    "rushing_long": ("rushing", "longRushing"),
+    "receptions": ("receiving", "receptions"),
+    "targets": ("receiving", "receivingTargets"),
+    "receiving_yards": ("receiving", "receivingYards"),
+    "receiving_tds": ("receiving", "receivingTouchdowns"),
+    "receiving_long": ("receiving", "longReception"),
+    "fumbles": ("fumbles", "fumbles"),
+    "fumbles_lost": ("fumbles", "fumblesLost"),
+    "fumbles_recovered": ("fumbles", "fumblesRecovered"),
+    "tackles_total": ("defensive", "totalTackles"),
+    "tackles_solo": ("defensive", "soloTackles"),
+    "passes_defended": ("defensive", "passesDefended"),
+    "qb_hits": ("defensive", "QBHits"),
+    "def_tds": ("defensive", "defensiveTouchdowns"),
+    "def_interceptions": ("interceptions", "interceptions"),
+    "def_interception_yards": ("interceptions", "interceptionYards"),
+    "def_interception_tds": ("interceptions", "interceptionTouchdowns"),
+    "kick_returns": ("kickReturns", "kickReturns"),
+    "kick_return_yards": ("kickReturns", "kickReturnYards"),
+    "kick_return_tds": ("kickReturns", "kickReturnTouchdowns"),
+    "punt_returns": ("puntReturns", "puntReturns"),
+    "punt_return_yards": ("puntReturns", "puntReturnYards"),
+    "punt_return_tds": ("puntReturns", "puntReturnTouchdowns"),
+    "field_goal_long": ("kicking", "longFieldGoalMade"),
+    "kicking_points": ("kicking", "totalKickingPoints"),
+    "punts": ("punting", "punts"),
+    "punt_yards": ("punting", "puntYards"),
+    "punts_inside_20": ("punting", "puntsInside20"),
+}
+_PLAYER_DOUBLES = {
+    "passer_rating": ("passing", "QBRating"),
+    "qbr": ("passing", "adjQBR"),
+    "def_sacks": ("defensive", "sacks"),
+    "tackles_for_loss": ("defensive", "tacklesForLoss"),
+}
+# "made/att" style stats: (group, key) -> (separator, left column, right column).
+_PLAYER_PAIRS = {
+    ("passing", "completions/passingAttempts"): (
+        "/",
+        "pass_completions",
+        "pass_attempts",
+    ),
+    ("passing", "sacks-sackYardsLost"): ("-", "sacks_taken", "sack_yards_lost"),
+    ("kicking", "fieldGoalsMade/fieldGoalAttempts"): (
+        "/",
+        "field_goals_made",
+        "field_goal_attempts",
+    ),
+    ("kicking", "extraPointsMade/extraPointAttempts"): (
+        "/",
+        "extra_points_made",
+        "extra_point_attempts",
+    ),
+}
+
+
+def _player_stat(entries: Column, group: str, key: str) -> Column:
+    """Raw string value of ``key`` from the player's row in stat ``group``, or NULL."""
+    row = first_where(entries, lambda e: e["group"] == group)
+    pos = F.array_position(row["keys"], key).cast("int")
+    return F.when(pos > 0, F.try_element_at(row["stats"], pos))
+
+
+def parse_player_game_stats(df: DataFrame) -> DataFrame:
+    # Pivot without groupBy (the parser runs on a stream): flatten each team's groups into
+    # (group, keys, athlete, stats) entries, explode the distinct athlete ids, then pick that
+    # athlete's entry per group.
+    teams = df.select(
+        "game_id",
+        F.col("header.season.year").alias("season"),
+        F.col("header.season.type").alias("season_type"),
+        F.col("header.week").alias("week"),
+        F.explode("boxscore.players").alias("t"),
+        "_source_file",
+        "_snapshot_at",
+    )
+    entries = F.flatten(
+        F.transform(
+            "t.statistics",
+            lambda g: F.transform(
+                g["athletes"],
+                lambda a: F.struct(
+                    g["name"].alias("group"),
+                    g["keys"].alias("keys"),
+                    a["athlete"].alias("athlete"),
+                    a["stats"].alias("stats"),
+                ),
+            ),
+        )
+    )
+    players = teams.withColumn("entries", entries).withColumn(
+        "player_id",
+        F.explode(
+            F.array_distinct(F.transform("entries", lambda e: e["athlete"]["id"]))
+        ),
+    )
+    mine = F.filter("entries", lambda e: e["athlete"]["id"] == F.col("player_id"))
+    athlete = F.try_element_at(mine, F.lit(1))["athlete"]
+
+    cols = [
+        "game_id",
+        "player_id",
+        athlete["displayName"].alias("player_name"),
+        athlete["jersey"].alias("jersey"),
+        F.col("t.team.id").alias("team_id"),
+        F.col("t.team.abbreviation").alias("team_abbreviation"),
+        "season",
+        "season_type",
+        "week",
+        "_source_file",
+        "_snapshot_at",
+    ]
+    cols += [
+        to_long(_player_stat(mine, *src)).alias(name)
+        for name, src in _PLAYER_LONGS.items()
+    ]
+    cols += [
+        to_double(_player_stat(mine, *src)).alias(name)
+        for name, src in _PLAYER_DOUBLES.items()
+    ]
+    for src, (sep, left, right) in _PLAYER_PAIRS.items():
+        made, att = split_pair(_player_stat(mine, *src), sep)
+        cols += [made.alias(left), att.alias(right)]
+
+    return _finish(players.select(*cols), TABLES["player_game_stats"])
+
+
 def parse_injury_news(df: DataFrame) -> DataFrame:
     """FantasyPros snapshot -> one row per article. Uses the table's legacy audit column names."""
     articles = df.select(
@@ -397,5 +533,6 @@ PARSERS = {
     "schedules": parse_schedules,
     "games": parse_games,
     "game_team_stats": parse_game_team_stats,
+    "player_game_stats": parse_player_game_stats,
     "injury_news": parse_injury_news,
 }

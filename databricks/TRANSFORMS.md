@@ -52,10 +52,10 @@ ESPN API ──Azure Functions──▶ alsource/espn/<dataset>/YYYY-MM-DD/<ts>.
 | `espn/standings/` | `fetchStandingsRosters` (daily 08:30) | `apis/v2/.../standings?season={y}` | `nfl.standings` |
 | `espn/rosters/` | `fetchStandingsRosters` (daily 08:30) | `site/v2/.../teams/{id}/roster?season={y}` ×32 | `nfl.rosters` |
 | `espn/schedules/` | `fetchGameData` (every 6h) | `site/v2/.../teams/{id}/schedule?season={y}&seasontype={2,3}` ×32 ×2, deduped by event id (without `seasontype` ESPN returns only the regular season) | `nfl.schedules` |
-| `espn/game_summaries/` | `fetchGameData` (every 6h) | `site/v2/.../summary?event={id}` for games that kicked off and are in progress or finished ≤3 days ago (max 50) | `nfl.games`, `nfl.game_team_stats` |
+| `espn/game_summaries/` | `fetchGameData` (every 6h) | `site/v2/.../summary?event={id}` for games that kicked off and are in progress or finished ≤3 days ago (max 50) | `nfl.games`, `nfl.game_team_stats`, `nfl.player_game_stats` |
 | `injury/` | `newsTrigger` (every 6h) | FantasyPros `public/v2/json/nfl/news?category=injury` (stored unchanged) | `nfl.injury_news` |
 
-**Historical backfill:** `azure/scripts/backfill-espn.js` lands whole past seasons (schedules, a summary for every completed game, regular + playoff standings) under the same prefixes in the same format, so the same notebooks ingest it. Seasons 2023–2026 were backfilled on 2026-10-06. Those blobs are permanent, so after a table reset you only need to re-run the notebooks, not the script. Rosters can't be backfilled (ESPN's site roster endpoint is empty for past seasons).
+**Historical backfill:** `azure/scripts/backfill-espn.js` lands whole past seasons (schedules, a summary for every completed game, regular + playoff standings) under the same prefixes in the same format, so the same notebooks ingest it. Seasons 2023–2026 were backfilled on 2026-10-06. Those blobs are permanent, so after a table reset you only need to re-run the notebooks, not the script. The exception is `nfl.player_game_stats`: summaries landed before `boxscore.players` was kept have no player data, so re-run the backfill once after deploying that Azure change to re-land them (the newer snapshot wins the merge). Rosters can't be backfilled (ESPN's site roster endpoint is empty for past seasons).
 
 ---
 
@@ -191,6 +191,41 @@ Source: `boxscore.teams[]` of each game summary. Each team has `homeAway`, `team
 | `totalPenaltiesYards` | `penalties`, `penalty_yards` | BIGINT | `"7-60"` → 7, 60 |
 | `turnovers`, `fumblesLost`, `defensiveTouchdowns` | `turnovers`, `fumbles_lost`, `defensive_touchdowns` | BIGINT | |
 | `possessionTime` | `possession_seconds` | BIGINT | `"33:42"` → 2022 |
+
+## `nfl.player_game_stats`
+**Grain:** one row per player per game box score. **Key:** `game_id, player_id`.
+
+Source: `boxscore.players[]` of each game summary (same blobs as `nfl.games`). Azure keeps per team `{team, statistics: [{name, keys, athletes: [{athlete: {id, displayName, jersey}, stats}]}]}`. `keys` and each athlete's `stats` are parallel arrays of strings. Groups: `passing`, `rushing`, `receiving`, `fumbles`, `defensive`, `interceptions`, `kickReturns`, `puntReturns`, `kicking`, `punting`.
+
+**How the parser pivots:** it flattens a team's groups into `(group, keys, athlete, stats)` entries, explodes the distinct athlete ids, and reads each column from that athlete's entry in one group. It doesn't use `groupBy`, because the parser runs on the Auto Loader stream. A player who appears in several groups (a QB in passing, rushing and fumbles) gets one row. A stat the player didn't record is NULL, not 0.
+
+**Not included:** position (join `nfl.rosters` on `player_id` + `season`), fantasy points (compute in SQL so scoring settings can vary), and 2-point conversions (ESPN's box score doesn't have them).
+
+**ESPN quirks this handles:**
+- Keys repeat across groups. `interceptions` means thrown in `passing` and caught in `interceptions`, so every lookup is by `(group, key)`.
+- Missing values are `'--'` (e.g. `adjQBR`). `to_long`/`to_double` turn them into NULL, and a `stats` array shorter than `keys` gives NULL too.
+- Sacks and tackles for loss can be halves (`0.5`), so they're DOUBLE.
+
+| ESPN group: key | Column(s) | Type | Rule |
+|---|---|---|---|
+| (record) `athlete.id` / `displayName` / `jersey` | `player_id` / `player_name` / `jersey` | STRING | |
+| (record) `team.id` / `team.abbreviation` | `team_id` / `team_abbreviation` | STRING | |
+| `header.season.year` / `.type` / `header.week` | `season` / `season_type` / `week` | BIGINT | |
+| passing: `completions/passingAttempts` | `pass_completions`, `pass_attempts` | BIGINT | `"17/28"` → 17, 28 |
+| passing: `passingYards`, `passingTouchdowns`, `interceptions` | `passing_yards`, `passing_tds`, `interceptions_thrown` | BIGINT | |
+| passing: `sacks-sackYardsLost` | `sacks_taken`, `sack_yards_lost` | BIGINT | `"4-16"` → 4, 16 |
+| passing: `QBRating`, `adjQBR` | `passer_rating`, `qbr` | DOUBLE | |
+| rushing: `rushingAttempts`, `rushingYards`, `rushingTouchdowns`, `longRushing` | `rushing_attempts`, `rushing_yards`, `rushing_tds`, `rushing_long` | BIGINT | |
+| receiving: `receptions`, `receivingTargets`, `receivingYards`, `receivingTouchdowns`, `longReception` | `receptions`, `targets`, `receiving_yards`, `receiving_tds`, `receiving_long` | BIGINT | |
+| fumbles: `fumbles`, `fumblesLost`, `fumblesRecovered` | `fumbles`, `fumbles_lost`, `fumbles_recovered` | BIGINT | |
+| defensive: `totalTackles`, `soloTackles`, `passesDefended`, `QBHits`, `defensiveTouchdowns` | `tackles_total`, `tackles_solo`, `passes_defended`, `qb_hits`, `def_tds` | BIGINT | |
+| defensive: `sacks`, `tacklesForLoss` | `def_sacks`, `tackles_for_loss` | DOUBLE | |
+| interceptions: `interceptions`, `interceptionYards`, `interceptionTouchdowns` | `def_interceptions`, `def_interception_yards`, `def_interception_tds` | BIGINT | |
+| kickReturns: `kickReturns`, `kickReturnYards`, `kickReturnTouchdowns` | `kick_returns`, `kick_return_yards`, `kick_return_tds` | BIGINT | |
+| puntReturns: `puntReturns`, `puntReturnYards`, `puntReturnTouchdowns` | `punt_returns`, `punt_return_yards`, `punt_return_tds` | BIGINT | |
+| kicking: `fieldGoalsMade/fieldGoalAttempts`, `extraPointsMade/extraPointAttempts` | `field_goals_made`, `field_goal_attempts`, `extra_points_made`, `extra_point_attempts` | BIGINT | `"1/1"` → 1, 1 |
+| kicking: `longFieldGoalMade`, `totalKickingPoints` | `field_goal_long`, `kicking_points` | BIGINT | |
+| punting: `punts`, `puntYards`, `puntsInside20` | `punts`, `punt_yards`, `punts_inside_20` | BIGINT | |
 
 ## `nfl.injury_news` (FantasyPros)
 **Grain:** one row per article. **Key:** `id`. Source: `injury/` snapshots from `newsTrigger`.

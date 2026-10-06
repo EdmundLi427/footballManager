@@ -390,6 +390,674 @@
             }
           ]
         }
+      ],
+      "players": [
+        {
+          "team": {
+            "id": "7",
+            "abbreviation": "DEN",
+            "displayName": "Denver Broncos"
+          },
+          "statistics": [
+            {
+              "name": "passing",
+              "keys": [
+                "completions/passingAttempts",
+                "passingYards",
+                "yardsPerPassAttempt",
+                "passingTouchdowns",
+                "interceptions",
+                "sacks-sackYardsLost",
+                "adjQBR",
+                "QBRating"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4426338",
+                    "displayName": "Bo Nix",
+                    "jersey": "10"
+                  },
+                  "stats": [
+                    "17/28",
+                    "131",
+                    "4.7",
+                    "1",
+                    "1",
+                    "4-16",
+                    "11.4",
+                    "69.2"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "rushing",
+              "keys": [
+                "rushingAttempts",
+                "rushingYards",
+                "yardsPerRushAttempt",
+                "rushingTouchdowns",
+                "longRushing"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4241985",
+                    "displayName": "J.K. Dobbins",
+                    "jersey": "27"
+                  },
+                  "stats": [
+                    "8",
+                    "36",
+                    "4.5",
+                    "0",
+                    "17"
+                  ]
+                },
+                {
+                  "athlete": {
+                    "id": "4568490",
+                    "displayName": "RJ Harvey",
+                    "jersey": "12"
+                  },
+                  "stats": [
+                    "3",
+                    "18",
+                    "6.0",
+                    "0",
+                    "7"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "receiving",
+              "keys": [
+                "receptions",
+                "receivingYards",
+                "yardsPerReception",
+                "receivingTouchdowns",
+                "longReception",
+                "receivingTargets"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "3051876",
+                    "displayName": "Evan Engram",
+                    "jersey": "1"
+                  },
+                  "stats": [
+                    "4",
+                    "43",
+                    "10.8",
+                    "1",
+                    "19",
+                    "5"
+                  ]
+                },
+                {
+                  "athlete": {
+                    "id": "4600981",
+                    "displayName": "Pat Bryant",
+                    "jersey": "13"
+                  },
+                  "stats": [
+                    "4",
+                    "42",
+                    "10.5",
+                    "0",
+                    "13",
+                    "6"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "fumbles",
+              "keys": [
+                "fumbles",
+                "fumblesLost",
+                "fumblesRecovered"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4426338",
+                    "displayName": "Bo Nix",
+                    "jersey": "10"
+                  },
+                  "stats": [
+                    "3",
+                    "1",
+                    "1"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "defensive",
+              "keys": [
+                "totalTackles",
+                "soloTackles",
+                "sacks",
+                "tacklesForLoss",
+                "passesDefended",
+                "QBHits",
+                "defensiveTouchdowns"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "2612151",
+                    "displayName": "Alex Singleton",
+                    "jersey": "49"
+                  },
+                  "stats": [
+                    "16",
+                    "5",
+                    "0",
+                    "0",
+                    "0",
+                    "0",
+                    "0"
+                  ]
+                },
+                {
+                  "athlete": {
+                    "id": "5216101",
+                    "displayName": "Dondrea Tillman",
+                    "jersey": "92"
+                  },
+                  "stats": [
+                    "6",
+                    "5",
+                    "0",
+                    "1",
+                    "0",
+                    "0",
+                    "0"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "interceptions",
+              "keys": [
+                "interceptions",
+                "interceptionYards",
+                "interceptionTouchdowns"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4039059",
+                    "displayName": "Brandon Jones",
+                    "jersey": "22"
+                  },
+                  "stats": [
+                    "1",
+                    "24",
+                    "0"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "kickReturns",
+              "keys": [
+                "kickReturns",
+                "kickReturnYards",
+                "yardsPerKickReturn",
+                "longKickReturn",
+                "kickReturnTouchdowns"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4568490",
+                    "displayName": "RJ Harvey",
+                    "jersey": "12"
+                  },
+                  "stats": [
+                    "4",
+                    "111",
+                    "27.8",
+                    "31",
+                    "0"
+                  ]
+                },
+                {
+                  "athlete": {
+                    "id": "4702555",
+                    "displayName": "Jonah Coleman",
+                    "jersey": "20"
+                  },
+                  "stats": [
+                    "1",
+                    "27",
+                    "27.0",
+                    "27",
+                    "0"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "puntReturns",
+              "keys": [
+                "puntReturns",
+                "puntReturnYards",
+                "yardsPerPuntReturn",
+                "longPuntReturn",
+                "puntReturnTouchdowns"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4686472",
+                    "displayName": "Marvin Mims Jr.",
+                    "jersey": "19"
+                  },
+                  "stats": [
+                    "2",
+                    "36",
+                    "18.0",
+                    "19",
+                    "0"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "kicking",
+              "keys": [
+                "fieldGoalsMade/fieldGoalAttempts",
+                "fieldGoalPct",
+                "longFieldGoalMade",
+                "extraPointsMade/extraPointAttempts",
+                "totalKickingPoints"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "2985659",
+                    "displayName": "Wil Lutz",
+                    "jersey": "3"
+                  },
+                  "stats": [
+                    "1/1",
+                    "100.0",
+                    "31",
+                    "1/1",
+                    "4"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "punting",
+              "keys": [
+                "punts",
+                "puntYards",
+                "grossAvgPuntYards",
+                "touchbacks",
+                "puntsInside20",
+                "longPunt"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4589212",
+                    "displayName": "Jeremy Crawshaw",
+                    "jersey": "16"
+                  },
+                  "stats": [
+                    "6",
+                    "314",
+                    "52.3",
+                    "1",
+                    "3",
+                    "68"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "team": {
+            "id": "12",
+            "abbreviation": "KC",
+            "displayName": "Kansas City Chiefs"
+          },
+          "statistics": [
+            {
+              "name": "passing",
+              "keys": [
+                "completions/passingAttempts",
+                "passingYards",
+                "yardsPerPassAttempt",
+                "passingTouchdowns",
+                "interceptions",
+                "sacks-sackYardsLost",
+                "adjQBR",
+                "QBRating"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "3139477",
+                    "displayName": "Patrick Mahomes",
+                    "jersey": "15"
+                  },
+                  "stats": [
+                    "15/27",
+                    "184",
+                    "6.8",
+                    "2",
+                    "1",
+                    "2-12",
+                    "49.9",
+                    "86.0"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "rushing",
+              "keys": [
+                "rushingAttempts",
+                "rushingYards",
+                "yardsPerRushAttempt",
+                "rushingTouchdowns",
+                "longRushing"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4567048",
+                    "displayName": "Kenneth Walker III",
+                    "jersey": "9"
+                  },
+                  "stats": [
+                    "23",
+                    "173",
+                    "7.5",
+                    "1",
+                    "60"
+                  ]
+                },
+                {
+                  "athlete": {
+                    "id": "4832955",
+                    "displayName": "Emmett Johnson",
+                    "jersey": "10"
+                  },
+                  "stats": [
+                    "8",
+                    "24",
+                    "3.0",
+                    "0",
+                    "6"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "receiving",
+              "keys": [
+                "receptions",
+                "receivingYards",
+                "yardsPerReception",
+                "receivingTouchdowns",
+                "longReception",
+                "receivingTargets"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "15847",
+                    "displayName": "Travis Kelce",
+                    "jersey": "87"
+                  },
+                  "stats": [
+                    "3",
+                    "71",
+                    "23.7",
+                    "0",
+                    "59",
+                    "5"
+                  ]
+                },
+                {
+                  "athlete": {
+                    "id": "4832955",
+                    "displayName": "Emmett Johnson",
+                    "jersey": "10"
+                  },
+                  "stats": [
+                    "2",
+                    "44",
+                    "22.0",
+                    "0",
+                    "25",
+                    "2"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "fumbles",
+              "keys": [
+                "fumbles",
+                "fumblesLost",
+                "fumblesRecovered"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4241385",
+                    "displayName": "Creed Humphrey",
+                    "jersey": "52"
+                  },
+                  "stats": [
+                    "2",
+                    "0",
+                    "0"
+                  ]
+                },
+                {
+                  "athlete": {
+                    "id": "3139477",
+                    "displayName": "Patrick Mahomes",
+                    "jersey": "15"
+                  },
+                  "stats": [
+                    "0",
+                    "0",
+                    "2"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "defensive",
+              "keys": [
+                "totalTackles",
+                "soloTackles",
+                "sacks",
+                "tacklesForLoss",
+                "passesDefended",
+                "QBHits",
+                "defensiveTouchdowns"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4040432",
+                    "displayName": "L'Jarius Sneed",
+                    "jersey": "38"
+                  },
+                  "stats": [
+                    "8",
+                    "7",
+                    "0",
+                    "0",
+                    "0",
+                    "0",
+                    "0"
+                  ]
+                },
+                {
+                  "athlete": {
+                    "id": "3129310",
+                    "displayName": "Drue Tranquill",
+                    "jersey": "23"
+                  },
+                  "stats": [
+                    "7",
+                    "2",
+                    "0",
+                    "0",
+                    "0",
+                    "0",
+                    "0"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "interceptions",
+              "keys": [
+                "interceptions",
+                "interceptionYards",
+                "interceptionTouchdowns"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4880124",
+                    "displayName": "Mansoor Delane",
+                    "jersey": "5"
+                  },
+                  "stats": [
+                    "1",
+                    "5",
+                    "0"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "kickReturns",
+              "keys": [
+                "kickReturns",
+                "kickReturnYards",
+                "yardsPerKickReturn",
+                "longKickReturn",
+                "kickReturnTouchdowns"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4372716",
+                    "displayName": "Nikko Remigio",
+                    "jersey": "81"
+                  },
+                  "stats": [
+                    "3",
+                    "78",
+                    "26.0",
+                    "28",
+                    "0"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "puntReturns",
+              "keys": [
+                "puntReturns",
+                "puntReturnYards",
+                "yardsPerPuntReturn",
+                "longPuntReturn",
+                "puntReturnTouchdowns"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4372716",
+                    "displayName": "Nikko Remigio",
+                    "jersey": "81"
+                  },
+                  "stats": [
+                    "2",
+                    "7",
+                    "3.5",
+                    "7",
+                    "0"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "kicking",
+              "keys": [
+                "fieldGoalsMade/fieldGoalAttempts",
+                "fieldGoalPct",
+                "longFieldGoalMade",
+                "extraPointsMade/extraPointAttempts",
+                "totalKickingPoints"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "3055899",
+                    "displayName": "Harrison Butker",
+                    "jersey": "7"
+                  },
+                  "stats": [
+                    "1/1",
+                    "100.0",
+                    "28",
+                    "4/4",
+                    "7"
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "punting",
+              "keys": [
+                "punts",
+                "puntYards",
+                "grossAvgPuntYards",
+                "touchbacks",
+                "puntsInside20",
+                "longPunt"
+              ],
+              "athletes": [
+                {
+                  "athlete": {
+                    "id": "4361496",
+                    "displayName": "Matt Araiza",
+                    "jersey": "14"
+                  },
+                  "stats": [
+                    "4",
+                    "218",
+                    "54.5",
+                    "0",
+                    "2",
+                    "63"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
       ]
     }
   }

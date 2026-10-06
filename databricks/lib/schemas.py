@@ -80,6 +80,16 @@ GAME_SUMMARIES_RAW = (
     "statistics: ARRAY<STRUCT<name: STRING, value: STRING, displayValue: STRING>>>>>"
 )
 
+# Same game_summaries blobs, read for the per-player box score only. Each stat group carries
+# parallel `keys` and per-athlete `stats` arrays of strings ('--' when ESPN has no value).
+PLAYER_BOX_RAW = (
+    "game_id STRING, header STRUCT<season: STRUCT<year: INT, type: INT>, week: INT>, "
+    f"boxscore STRUCT<players: ARRAY<STRUCT<team: {_TEAM_REF}, "
+    "statistics: ARRAY<STRUCT<name: STRING, keys: ARRAY<STRING>, athletes: ARRAY<STRUCT<"
+    "athlete: STRUCT<id: STRING, displayName: STRING, jersey: STRING>, "
+    "stats: ARRAY<STRING>>>>>>>>"
+)
+
 INJURY_RAW = (
     "sport STRING, title STRING, description STRING, count BIGINT, items ARRAY<STRUCT<"
     "id: BIGINT, created: STRING, created_formated: STRING, author: STRING, player_id: BIGINT, "
@@ -347,6 +357,74 @@ GAME_TEAM_STATS = Table(
     ),
 )
 
+PLAYER_GAME_STATS = Table(
+    name="player_game_stats",
+    source_prefix="espn/game_summaries",
+    raw_schema=PLAYER_BOX_RAW,
+    keys=("game_id", "player_id"),
+    description=(
+        "One row per player per game box score. Stats a player did not record are NULL. "
+        "No position or fantasy points: join rosters for position, compute scoring in SQL."
+    ),
+    schema=_schema(
+        _col("game_id", S, nullable=False),
+        _col("player_id", S, "ESPN athlete id", nullable=False),
+        _col("player_name", S),
+        _col("jersey", S),
+        _col("team_id", S),
+        _col("team_abbreviation", S),
+        _col("season", L),
+        _col("season_type", L, "1=pre, 2=regular, 3=post"),
+        _col("week", L),
+        _col("pass_completions", L),
+        _col("pass_attempts", L),
+        _col("passing_yards", L),
+        _col("passing_tds", L),
+        _col("interceptions_thrown", L),
+        _col("sacks_taken", L),
+        _col("sack_yards_lost", L),
+        _col("passer_rating", D, "NFL passer rating"),
+        _col("qbr", D, "ESPN adjusted QBR"),
+        _col("rushing_attempts", L),
+        _col("rushing_yards", L),
+        _col("rushing_tds", L),
+        _col("rushing_long", L),
+        _col("receptions", L),
+        _col("targets", L),
+        _col("receiving_yards", L),
+        _col("receiving_tds", L),
+        _col("receiving_long", L),
+        _col("fumbles", L),
+        _col("fumbles_lost", L),
+        _col("fumbles_recovered", L),
+        _col("tackles_total", L),
+        _col("tackles_solo", L),
+        _col("def_sacks", D, "Half sacks possible"),
+        _col("tackles_for_loss", D),
+        _col("passes_defended", L),
+        _col("qb_hits", L),
+        _col("def_tds", L, "Defensive touchdowns"),
+        _col("def_interceptions", L),
+        _col("def_interception_yards", L),
+        _col("def_interception_tds", L),
+        _col("kick_returns", L),
+        _col("kick_return_yards", L),
+        _col("kick_return_tds", L),
+        _col("punt_returns", L),
+        _col("punt_return_yards", L),
+        _col("punt_return_tds", L),
+        _col("field_goals_made", L),
+        _col("field_goal_attempts", L),
+        _col("field_goal_long", L),
+        _col("extra_points_made", L),
+        _col("extra_point_attempts", L),
+        _col("kicking_points", L),
+        _col("punts", L),
+        _col("punt_yards", L),
+        _col("punts_inside_20", L),
+    ),
+)
+
 INJURY_NEWS = Table(
     name="injury_news",
     source_prefix="injury",
@@ -388,6 +466,7 @@ TABLES = {
         SCHEDULES,
         GAMES,
         GAME_TEAM_STATS,
+        PLAYER_GAME_STATS,
         INJURY_NEWS,
     )
 }

@@ -82,6 +82,111 @@ def test_game_team_stats_golden_values(read_fixture):
     assert kc.possession_seconds + den.possession_seconds == 60 * 60
 
 
+def test_player_game_stats_golden_values(read_fixture):
+    rows = by_key(parse(read_fixture, "player_game_stats").collect(), "player_id")
+    assert all(r.game_id == GAME_ID for r in rows.values())
+
+    # Passing + fumbles groups merge into one row; 'interceptions' thrown, not caught.
+    nix = rows["4426338"]
+    assert (nix.player_name, nix.team_id, nix.team_abbreviation) == (
+        "Bo Nix",
+        "7",
+        "DEN",
+    )
+    assert (nix.season, nix.season_type, nix.week) == (2026, 2, 1)
+    assert (nix.pass_completions, nix.pass_attempts) == (17, 28)
+    assert (nix.passing_yards, nix.passing_tds, nix.interceptions_thrown) == (131, 1, 1)
+    assert (nix.sacks_taken, nix.sack_yards_lost) == (4, 16)
+    assert nix.passer_rating == pytest.approx(69.2)
+    assert nix.qbr == pytest.approx(11.4)
+    assert (nix.fumbles, nix.fumbles_lost) == (3, 1)
+    assert nix.def_interceptions is None
+    assert nix.rushing_yards is None  # not in the trimmed fixture's rushing group
+
+    # Rushing + receiving.
+    johnson = rows["4832955"]
+    assert johnson.team_abbreviation == "KC"
+    assert (johnson.rushing_attempts, johnson.rushing_yards, johnson.rushing_long) == (
+        8,
+        24,
+        6,
+    )
+    assert (johnson.receptions, johnson.targets, johnson.receiving_yards) == (2, 2, 44)
+
+    walker = rows["4567048"]
+    assert (walker.rushing_yards, walker.rushing_tds, walker.rushing_long) == (
+        173,
+        1,
+        60,
+    )
+
+    jones = rows["4039059"]
+    assert (jones.def_interceptions, jones.def_interception_yards) == (1, 24)
+    assert jones.interceptions_thrown is None
+
+    butker = rows["3055899"]
+    assert (butker.field_goals_made, butker.field_goal_attempts) == (1, 1)
+    assert (butker.extra_points_made, butker.extra_point_attempts) == (4, 4)
+    assert (butker.field_goal_long, butker.kicking_points) == (28, 7)
+
+    remigio = rows["4372716"]  # kick + punt returns
+    assert (remigio.kick_returns, remigio.kick_return_yards) == (3, 78)
+    assert (remigio.punt_returns, remigio.punt_return_yards) == (2, 7)
+
+
+def test_player_game_stats_missing_values_become_null(spark):
+    from lib.schemas import TABLES
+    from lib.transforms import parse_player_game_stats
+
+    raw = spark.createDataFrame(
+        [
+            {
+                "game_id": "1",
+                "header": {"season": {"year": 2025, "type": 2}, "week": 3},
+                "boxscore": {
+                    "players": [
+                        {
+                            "team": {
+                                "id": "12",
+                                "abbreviation": "KC",
+                                "displayName": "KC",
+                            },
+                            "statistics": [
+                                {
+                                    "name": "passing",
+                                    "keys": [
+                                        "completions/passingAttempts",
+                                        "adjQBR",
+                                        "QBRating",
+                                    ],
+                                    # '--' placeholder and a stats array shorter than keys
+                                    "athletes": [
+                                        {
+                                            "athlete": {
+                                                "id": "9",
+                                                "displayName": "X",
+                                                "jersey": "1",
+                                            },
+                                            "stats": ["3/5", "--"],
+                                        },
+                                    ],
+                                }
+                            ],
+                        }
+                    ]
+                },
+                "_source_file": "f.json",
+                "_snapshot_at": datetime(2025, 9, 1),
+            }
+        ],
+        schema=f"{TABLES['player_game_stats'].raw_schema}, _source_file STRING, _snapshot_at TIMESTAMP",
+    )
+    row = parse_player_game_stats(raw).first()
+    assert (row.pass_completions, row.pass_attempts) == (3, 5)
+    assert row.qbr is None
+    assert row.passer_rating is None
+
+
 def test_games_golden_values(read_fixture):
     (game,) = parse(read_fixture, "games").collect()
     assert game.game_id == GAME_ID

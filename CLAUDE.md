@@ -36,7 +36,7 @@ All data lands in one container (`alsource`) as JSON arrays at `{prefix}/{YYYY-M
 - `src/functions/newsTrigger.js` – FantasyPros injury news, every 6h → `injury/`
 - `src/functions/teamsPlayersTrigger.js` – daily 06:15 UTC → `espn/teams/`, `espn/players/` (core v3 athlete index, paginated; includes retired players)
 - `src/functions/standingsRostersTrigger.js` – daily 08:30 UTC → `espn/standings/` (one record: `{season, children}`), `espn/rosters/` (one record per team, 32 calls, bounded concurrency, partial-failure tolerant)
-- `src/functions/gameDataTrigger.js` – every 6h → `espn/schedules/` (raw events from 32 team schedules × seasontype 2 and 3, deduped by id — without `seasontype` ESPN returns only the regular season) and `espn/game_summaries/` (one `{game_id, header, gameInfo, boxscore.teams}` per targeted game)
+- `src/functions/gameDataTrigger.js` – every 6h → `espn/schedules/` (raw events from 32 team schedules × seasontype 2 and 3, deduped by id — without `seasontype` ESPN returns only the regular season) and `espn/game_summaries/` (one `{game_id, header, gameInfo, boxscore.{teams,players}}` per targeted game; `players` = per-athlete stat groups with parallel `keys`/`stats` string arrays)
 - `src/lib/espnAssemble.js` – pure landing builders: `BLOB_PREFIXES`, `buildTeamsLanding`, `buildPlayersLanding`, `buildRosterLanding`, `buildStandingsLanding`, `trimScheduleEvent`, `buildGameSummaryLanding`, `dedupeSchedulesByGameId`, `selectTargetGames` (games that kicked off and are in progress or completed within the trailing window; uses `status.type.completed`), `selectCompletedGames` (backfill: all completed games, uncapped)
 - `src/lib/espnFetch.js` – fetch+assemble shared by triggers and backfill: `fetchTeamIds`, `fetchSeasonSchedules` (regular + playoffs), `fetchGameSummaries`, `fetchStandings`; item failures are collected, not thrown
 - `src/lib/espnClient.js` – `getCurrentSeasonYear()`, `fetchWithRetry()`, `mapWithConcurrency()`, `paginateEspnEndpoint()`
@@ -44,7 +44,7 @@ All data lands in one container (`alsource`) as JSON arrays at `{prefix}/{YYYY-M
 - `local.settings.json` – local dev env (gitignored; contains real API credentials — never commit)
 - `test/lib/espnAssemble.test.js` – contract tests: builders on `test/fixture/espn/*` must deep-equal `databricks/tests/fixtures/espn/*`
 
-**ESPN payload quirks (verified live)**: `status.type` is an object (`{name, state, completed, ...}`), not a string; `boxscore.teams[0]` is the **away** team (use `homeAway`); box score paired stats carry real data in `displayValue` (`"9-17"`) while `value` is a ratio or `'-'`; header scores are strings, schedule scores are `{value, displayValue}`; standings live at `children[].standings.entries`.
+**ESPN payload quirks (verified live)**: `status.type` is an object (`{name, state, completed, ...}`), not a string; `boxscore.teams[0]` is the **away** team (use `homeAway`); box score paired stats carry real data in `displayValue` (`"9-17"`) while `value` is a ratio or `'-'`; header scores are strings, schedule scores are `{value, displayValue}`; standings live at `children[].standings.entries`; player box score keys repeat across groups (`interceptions` = thrown in `passing`, caught in `interceptions`) and missing values are `'--'`; the player box score has no position.
 
 **Environment variables** (set in `local.settings.json` locally or `.env`):
 - `FANTASY_PRO_API_KEY` – FantasyPros API key (required for news)
@@ -71,7 +71,7 @@ All data lands in one container (`alsource`) as JSON arrays at `{prefix}/{YYYY-M
 **Key files**:
 - `src/data_service/server.py` – MCP server implementation; exposes `list_tables`, `describe_table`, `table_history`, `query` tools
 - `pyproject.toml` – workspace member; deps: `mcp[cli]`, `deltalake>=1.0`, `duckdb>=1.1`, `pyarrow`, `python-dotenv`, `pytz`
-- `tables.example.json` – template. The real config is `src/data_service/tables.json` (default `CONFIG_PATH`, next to `server.py`; gitignored; override with `DELTA_TABLES_CONFIG`) listing the 8 `nfl` tables' `abfss://aldestination@footballmanagerli...` paths (`silver/<table>`, `injury/injury_news`).
+- `tables.example.json` – template. The real config is `src/data_service/tables.json` (default `CONFIG_PATH`, next to `server.py`; gitignored; override with `DELTA_TABLES_CONFIG`) listing the 9 `nfl` tables' `abfss://aldestination@footballmanagerli...` paths (`silver/<table>`, `injury/injury_news`).
 - `README.md` – full setup & configuration guide (note: some credential env vars it documents aren't actually consumed by the code — see above)
 
 **Architecture**: Installed as a workspace member; can be imported in-process (e.g., by `webapp/`) as `from data_service.server import list_tables, describe_table, table_history, query`.
@@ -100,12 +100,12 @@ All data lands in one container (`alsource`) as JSON arrays at `{prefix}/{YYYY-M
 **Purpose**: The only module that writes the `nfl.*` Delta tables. Notebooks run on a Databricks cluster; the logic lives in a locally tested library. **Column-by-column reference: `databricks/TRANSFORMS.md`.**
 
 **Key files**:
-- `lib/schemas.py` – single source of truth: `*_RAW` Auto Loader read schemas (ESPN field names) and `TABLES[name]` (silver columns/types/comments, `keys`, `source_prefix`, `snapshot_col`). `ESPN_TABLES` = the 7 ESPN tables.
+- `lib/schemas.py` – single source of truth: `*_RAW` Auto Loader read schemas (ESPN field names) and `TABLES[name]` (silver columns/types/comments, `keys`, `source_prefix`, `snapshot_col`). `ESPN_TABLES` = the 8 ESPN tables.
 - `lib/transforms.py` – `parse_<table>(df)`: pure DataFrame → DataFrame, output exactly `TABLES[name].schema`; `with_file_metadata()` adds `_source_file`/`_snapshot_at`; safe casts (`to_long`/`to_double`) so `'-'` becomes NULL under ANSI mode. Spark 3.5+/4.x compatible.
 - `lib/delta_io.py` – `ensure_table()` (DDL generated from `TABLES`, keys `NOT NULL`), `dedupe_latest()`, `upsert_latest()` (MERGE; update only when incoming snapshot is newer), `upsert_batch_fn()` for `foreachBatch`.
-- `notebooks/ingest_game_{teams,players,rosters,standings,schedules,games,team_stats}.ipynb` – identical 4-cell template: `sys.path` → `lib`, `TABLE = schemas.TABLES[...]`, Auto Loader with `TABLE.raw_schema` → `parse_*` → upsert, sanity check. Data at `aldestination/silver/<table>`, checkpoints `_checkpoints/silver_<table>`.
+- `notebooks/ingest_game_{teams,players,rosters,standings,schedules,games,team_stats,player_stats}.ipynb` – identical 4-cell template: `sys.path` → `lib`, `TABLE = schemas.TABLES[...]`, Auto Loader with `TABLE.raw_schema` → `parse_*` → upsert, sanity check. Data at `aldestination/silver/<table>`, checkpoints `_checkpoints/silver_<table>`.
 - `notebooks/ingest_news_data.ipynb` – same pattern for `nfl.injury_news` (keeps its original location, checkpoint and `source_file`/`snapshot_at`/`ingested_at` column names).
-- `notebooks/reset_espn_tables.ipynb` – destructive, guarded by widget `confirm=RESET`: drops the 7 ESPN tables + data/checkpoint dirs (incl. pre-`espn/` paths). Never touches `injury_news`.
+- `notebooks/reset_espn_tables.ipynb` – destructive, guarded by widget `confirm=RESET`: drops the 8 ESPN tables + data/checkpoint dirs (incl. pre-`espn/` paths). Never touches `injury_news`.
 
 **Conventions**: snake_case columns; ESPN ids are `STRING`; audit columns `_source_file`, `_snapshot_at`, `_ingested_at`; no schema evolution or NULL-filling of missing columns (that previously hid upstream bugs) — schema changes are deliberate (edit `schemas.py` + `transforms.py` + TRANSFORMS.md, then ALTER or reset/replay).
 
