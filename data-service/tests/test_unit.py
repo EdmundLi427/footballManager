@@ -1,12 +1,13 @@
 """Unit tests for Delta Lake MCP server using in-memory test tables."""
 
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pyarrow as pa
 import pytest
-from data_service.server import Lake, describe_table, list_tables, query, table_history
+from data_service.server import Lake, describe_table, list_tables, query, search_news, table_history
 from deltalake import write_deltalake
 
 
@@ -37,6 +38,83 @@ def test_lake(tmp_path):
         "tables": {
             "users": str(tmp_path / "users"),
             "locations": str(tmp_path / "locations"),
+        },
+        "storage_options": {},
+    }
+    config_path = tmp_path / "tables.json"
+    config_path.write_text(json.dumps(config))
+
+    return Lake(config_path)
+
+
+@pytest.fixture
+def test_lake_with_news(tmp_path):
+    """Create a Lake instance with test injury_news table."""
+    now = datetime.now(timezone.utc)
+    yesterday = now - timedelta(days=1)
+    two_weeks_ago = now - timedelta(days=15)
+
+    # Write injury news test table with all required columns
+    news_data = pa.table(
+        {
+            "id": pa.array([1, 2, 3, 4], type=pa.int64()),
+            "player_id": pa.array([101, 102, 103, 104], type=pa.int64()),
+            "team_id": pa.array(["KC", "KC", "TB", "TB"], type=pa.string()),
+            "title": pa.array(
+                [
+                    "Patrick Mahomes (knee) limited at practice",
+                    "Joe Thuney (shoulder) out this week",
+                    "Mike Evans (hamstring) out indefinitely",
+                    "Leonard Fournette (ankle) cleared to play",
+                ],
+                type=pa.string(),
+            ),
+            "description": pa.array(
+                [
+                    "Mahomes knee soreness is not serious; expected to play Sunday.",
+                    "Thuney has a shoulder injury and will miss Week 8.",
+                    "Evans hamstring injury is expected to sideline him for multiple weeks.",
+                    "Fournette ankle sprain is healed; cleared by medical staff.",
+                ],
+                type=pa.string(),
+            ),
+            "impact": pa.array(
+                [
+                    "Monitor his status daily.",
+                    "Will miss Week 8; backup available.",
+                    "Expect to miss 3-4 weeks.",
+                    "Ready to play Sunday.",
+                ],
+                type=pa.string(),
+            ),
+            "author": pa.array(["FantasyPros"] * 4, type=pa.string()),
+            "categories": pa.array(
+                [
+                    ["Injury"],
+                    ["Injury"],
+                    ["Injury"],
+                    ["Injury"],
+                ],
+                type=pa.list_(pa.string()),
+            ),
+            "link": pa.array(
+                ["http://example.com/1", "http://example.com/2", "http://example.com/3", "http://example.com/4"],
+                type=pa.string(),
+            ),
+            "sport_id": pa.array(["nfl"] * 4, type=pa.string()),
+            "created_at": pa.array([now, yesterday, two_weeks_ago, now], type=pa.timestamp("us", tz="UTC")),
+            "snapshot_at": pa.array([now, now, now, now], type=pa.timestamp("us", tz="UTC")),
+            "source_file": pa.array(["test"] * 4, type=pa.string()),
+            "ingested_at": pa.array([now, now, now, now], type=pa.timestamp("us", tz="UTC")),
+        }
+    )
+
+    write_deltalake(str(tmp_path / "injury_news"), news_data, mode="overwrite")
+
+    # Create config pointing to test tables
+    config = {
+        "tables": {
+            "injury_news": str(tmp_path / "injury_news"),
         },
         "storage_options": {},
     }
@@ -221,3 +299,103 @@ def test_lake_invalid_table_name():
         config_path.write_text(json.dumps(config))
         with pytest.raises(ValueError, match="Invalid table name"):
             Lake(config_path)
+
+
+def test_search_news_by_keyword(test_lake_with_news):
+    """Test search_news finds articles by keyword."""
+    from data_service import server
+
+    old_lake = server.lake
+    server.lake = lambda: test_lake_with_news
+
+    try:
+        result = json.loads(search_news(query_text="knee"))
+        assert result["query"] == "knee"
+        assert result["count"] >= 1
+        # Should find Mahomes article
+        assert any("Mahomes" in r["title"] for r in result["results"])
+    finally:
+        server.lake = old_lake
+
+
+def test_search_news_by_player(test_lake_with_news):
+    """Test search_news finds articles by player name."""
+    from data_service import server
+
+    old_lake = server.lake
+    server.lake = lambda: test_lake_with_news
+
+    try:
+        # Use days=20 to include Evans who is 15 days old
+        result = json.loads(search_news(player="Evans", days=20))
+        assert result["player"] == "Evans"
+        assert result["count"] >= 1
+        # Should find Evans article
+        assert any("Evans" in r["title"] for r in result["results"])
+    finally:
+        server.lake = old_lake
+
+
+def test_search_news_by_team(test_lake_with_news):
+    """Test search_news finds articles by team."""
+    from data_service import server
+
+    old_lake = server.lake
+    server.lake = lambda: test_lake_with_news
+
+    try:
+        result = json.loads(search_news(team="KC"))
+        assert result["team"] == "KC"
+        assert result["count"] == 2
+        # Should find both KC articles
+        titles = [r["title"] for r in result["results"]]
+        assert any("Mahomes" in t for t in titles)
+        assert any("Thuney" in t for t in titles)
+    finally:
+        server.lake = old_lake
+
+
+def test_search_news_recency_filter(test_lake_with_news):
+    """Test search_news filters by recency (days parameter)."""
+    from data_service import server
+
+    old_lake = server.lake
+    server.lake = lambda: test_lake_with_news
+
+    try:
+        # Search with 10 day window should exclude 2-week-old article
+        result = json.loads(search_news(days=10))
+        assert result["days"] == 10
+        # Should not include the article from 15 days ago
+        assert not any("Evans" in r["title"] for r in result["results"])
+    finally:
+        server.lake = old_lake
+
+
+def test_search_news_limit(test_lake_with_news):
+    """Test search_news respects limit parameter."""
+    from data_service import server
+
+    old_lake = server.lake
+    server.lake = lambda: test_lake_with_news
+
+    try:
+        result = json.loads(search_news(limit=2))
+        assert result["count"] <= 2
+    finally:
+        server.lake = old_lake
+
+
+def test_search_news_empty_result(test_lake_with_news):
+    """Test search_news returns empty results when no matches."""
+    from data_service import server
+
+    old_lake = server.lake
+    server.lake = lambda: test_lake_with_news
+
+    try:
+        result = json.loads(search_news(query_text="nonexistent"))
+        assert result["count"] == 0
+        assert result["results"] == []
+    finally:
+        server.lake = old_lake

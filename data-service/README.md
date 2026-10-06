@@ -10,6 +10,7 @@ Lets Claude list, inspect, and run read-only SQL against your Delta Lake tables.
 | `describe_table` | Columns/types, Delta version, partition columns, file count |
 | `table_history` | Recent Delta commits |
 | `query` | One read-only SQL statement (DuckDB dialect), results as JSON, row-capped |
+| `search_news` | Search `injury_news` by keyword, player, or team with recency filter |
 
 Tables are read with delta-rs and registered in an in-memory DuckDB database.
 File access, `COPY`, `ATTACH`, `SET`, DDL/DML, and multiple statements are all

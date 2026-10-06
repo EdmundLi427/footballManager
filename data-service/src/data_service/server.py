@@ -20,6 +20,7 @@ import json
 import os
 import re
 import threading
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -226,6 +227,129 @@ def query(sql: str, max_rows: int = 200) -> str:
             "rows": [list(r) for r in rows[:max_rows]],
             "row_count": min(len(rows), max_rows),
             "truncated": truncated,
+        }
+    )
+
+
+def _escape_sql_like(value: str) -> str:
+    """Escape special characters for SQL LIKE clause."""
+    # Escape % and _ for LIKE pattern matching
+    escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return escaped
+
+
+@_mcp_tool
+def search_news(
+    query_text: str = "", player: str = "", team: str = "", days: int = 14, limit: int = 8
+) -> str:
+    """Search FantasyPros injury news by keyword, player, or team.
+
+    Args:
+        query_text: Free-text search keywords (searches title and description)
+        player: Player name or part of a name (searches title)
+        team: Team abbreviation or name (team_id filter)
+        days: Look back this many days (default 14)
+        limit: Max articles to return (default 8, max 20)
+
+    Returns:
+        JSON list of articles: created_at, title, description, impact, player_id, team_id, link
+    """
+    if not any([query_text, player, team]):
+        # No filters; return recent news
+        pass
+
+    limit = max(1, min(limit, 20))
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=max(1, days))
+
+    lk = lake()
+    with lk.lock:
+        lk.refresh()
+
+        # Build WHERE clause
+        # Format timestamp for DuckDB (YYYY-MM-DD HH:MM:SS.US format, no timezone in cast)
+        cutoff_str = cutoff_date.strftime("%Y-%m-%d %H:%M:%S.%f")
+        where_parts = [f"created_at >= CAST('{cutoff_str}' AS TIMESTAMP)"]
+
+        # Keyword search: tokenize and search in title and description
+        if query_text:
+            tokens = [t.strip() for t in query_text.split() if t.strip()]
+            if tokens:
+                # Build OR conditions for ILIKE match on either title or description
+                conditions = []
+                for token in tokens:
+                    safe_token = _escape_sql_like(token)
+                    conditions.append(
+                        f"(title ILIKE '%{safe_token}%' ESCAPE '\\' OR description ILIKE '%{safe_token}%' ESCAPE '\\')"
+                    )
+                token_conditions = " OR ".join(conditions)
+                where_parts.append(f"({token_conditions})")
+
+        # Player name search (match in title, since injury_news has no player name column)
+        if player:
+            safe_player = _escape_sql_like(player)
+            where_parts.append(f"title ILIKE '%{safe_player}%' ESCAPE '\\'")
+
+        # Team search (exact match on team_id)
+        if team:
+            safe_team = team.upper()
+            where_parts.append(f"team_id = '{safe_team}'")
+
+        where_clause = " AND ".join(where_parts)
+
+        # Query with ranking by recency (newer first)
+        sql = f"""
+        SELECT
+            created_at,
+            title,
+            description,
+            impact,
+            player_id,
+            team_id,
+            link
+        FROM injury_news
+        WHERE {where_clause}
+        ORDER BY created_at DESC
+        LIMIT {limit}
+        """
+
+        try:
+            rel = lk.con.sql(sql)
+            rows = rel.fetchall()
+            columns = rel.columns
+        except Exception as e:
+            return _to_json(
+                {
+                    "error": f"Query failed: {str(e)}",
+                    "query": query_text,
+                    "player": player,
+                    "team": team,
+                }
+            )
+
+    # Convert rows to dicts for readability
+    results = []
+    for row in rows:
+        results.append(
+            {
+                "created_at": row[0].isoformat() if row[0] else None,
+                "title": row[1],
+                "description": row[2],
+                "impact": row[3],
+                "player_id": row[4],
+                "team_id": row[5],
+                "link": row[6],
+            }
+        )
+
+    return _to_json(
+        {
+            "query": query_text,
+            "player": player,
+            "team": team,
+            "days": days,
+            "results": results,
+            "count": len(results),
+            "truncated": len(results) >= limit,
         }
     )
 

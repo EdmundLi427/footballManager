@@ -69,12 +69,16 @@ All data lands in one container (`alsource`) as JSON arrays at `{prefix}/{YYYY-M
 - Credentials via env vars or `storage_options` in `tables.json`. The real local `.env` here only sets `AZURE_STORAGE_CONNECTION_STRING` (parsed manually in `server.py`'s `Lake.__init__`); the README also documents `AWS_PROFILE`/`AZURE_STORAGE_ACCOUNT_NAME`/`GOOGLE_APPLICATION_CREDENTIALS` but `server.py` doesn't read those explicitly — they'd only take effect via delta-rs's own default credential chain.
 
 **Key files**:
-- `src/data_service/server.py` – MCP server implementation; exposes `list_tables`, `describe_table`, `table_history`, `query` tools
+- `src/data_service/server.py` – MCP server implementation; exposes `list_tables`, `describe_table`, `table_history`, `query`, `search_news` tools
 - `pyproject.toml` – workspace member; deps: `mcp[cli]`, `deltalake>=1.0`, `duckdb>=1.1`, `pyarrow`, `python-dotenv`, `pytz`
 - `tables.example.json` – template. The real config is `src/data_service/tables.json` (default `CONFIG_PATH`, next to `server.py`; gitignored; override with `DELTA_TABLES_CONFIG`) listing the 9 `nfl` tables' `abfss://aldestination@footballmanagerli...` paths (`silver/<table>`, `injury/injury_news`).
 - `README.md` – full setup & configuration guide (note: some credential env vars it documents aren't actually consumed by the code — see above)
 
-**Architecture**: Installed as a workspace member; can be imported in-process (e.g., by `webapp/`) as `from data_service.server import list_tables, describe_table, table_history, query`.
+**Tools**:
+- `list_tables`, `describe_table`, `table_history`, `query` – standard Delta/DuckDB SQL access
+- `search_news` – search FantasyPros injury news by keyword, player, or team (faster than SQL; built-in recency and limit filters)
+
+**Architecture**: Installed as a workspace member; can be imported in-process (e.g., by `webapp/`) as `from data_service.server import list_tables, describe_table, table_history, query, search_news`.
 
 **Convention**: Queries always see latest committed Delta version. Each table is materialized in memory via deltalake's `QueryBuilder` (`_snapshot()` in `server.py`), **not** `to_pyarrow_dataset()` — Databricks MERGE enables deletion vectors, which `to_pyarrow_dataset()` rejects; view types (`string_view`) are cast to plain types for DuckDB. `.env` loading: caller's `.env` first, then `data-service/.env`; whitespace is stripped from `AZURE_STORAGE_CONNECTION_STRING`.
 
@@ -122,15 +126,16 @@ If data isn't showing up in `data-service`, check whether these notebooks have r
 
 **Dev**:
 - `uv run --directory webapp python app.py` – run the Flask server; open **http://127.0.0.1:5000** (on macOS, `localhost:5000` can hit AirPlay Receiver and return 403 — use 127.0.0.1 or set `FLASK_PORT`)
-- `uv run --directory webapp pytest` – 2 smoke tests
+- `uv run --directory webapp pytest` – 4 tests (app creation, routes, system prompt existence, system prompt passed to API)
 - `python webapp/chatbot.py` – CLI mode for testing the chatbot directly (interactive REPL)
 
 **Key files**:
 - `app.py` – Flask server; exposes `/` (chat UI), `/api/chat`, `/api/clear`, `/api/history`
   - Configuration via env vars: `FLASK_DEBUG` (default True), `FLASK_PORT` (default 5000), `ANTHROPIC_API_KEY` (required)
 - `chatbot.py` – `Chatbot` class wrapping Anthropic's Messages API; hardcodes `self.model = "claude-opus-5-5"`
-  - Defines MCP-style tools for `list_tables`, `describe_table`, `table_history`, `query` from `data-service`
+  - Defines MCP-style tools for `list_tables`, `describe_table`, `table_history`, `query`, `search_news` from `data-service`
   - Implements a tool-use loop to call these functions in-process
+  - System prompt: guides tool routing, data freshness/citation rules, and schema facts (ESPN IDs are STRING, injury_news has no player names, etc.)
   - Imports from `data_service.server` (workspace member; no sys.path hacks)
 - `templates/index.html` – React/vanilla JS chat UI
 - `pyproject.toml` – workspace member; deps: `anthropic`, `flask`, `python-dotenv`, `pytz`, plus `data-service` as a workspace source
