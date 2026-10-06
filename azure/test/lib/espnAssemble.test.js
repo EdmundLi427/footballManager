@@ -12,6 +12,7 @@ const {
   trimScheduleEvent,
   buildGameSummaryLanding,
   selectTargetGames,
+  selectCompletedGames,
 } = require('../../src/lib/espnAssemble');
 
 const RAW_DIR = path.join(__dirname, '..', 'fixture', 'espn');
@@ -140,6 +141,30 @@ test('selectTargetGames', async (t) => {
     process.env.GAME_SUMMARY_MAX_TARGETS = '2';
     const events = Array.from({ length: 10 }, (_, i) => event(`g${i}`, '2026-10-04T20:00Z', false));
     assert.strictEqual(selectTargetGames(events, now).length, 2);
+    delete process.env.GAME_SUMMARY_MAX_TARGETS;
+  });
+});
+
+test('selectCompletedGames', async (t) => {
+  const now = new Date('2026-10-05T00:00Z');
+
+  await t.test('selects every completed game regardless of age, skipping unfinished and future games', () => {
+    const result = selectCompletedGames(
+      [
+        event('old', '2023-09-10T20:00Z', true),
+        event('recent', '2026-10-04T20:00Z', true),
+        event('in_progress', '2026-10-04T23:00Z', false),
+        event('future', '2026-10-12T20:00Z', false),
+      ],
+      now
+    );
+    assert.deepStrictEqual(result, ['old', 'recent']);
+  });
+
+  await t.test('is not capped by GAME_SUMMARY_MAX_TARGETS', () => {
+    process.env.GAME_SUMMARY_MAX_TARGETS = '2';
+    const events = Array.from({ length: 10 }, (_, i) => event(`g${i}`, '2024-10-04T20:00Z', true));
+    assert.strictEqual(selectCompletedGames(events, now).length, 10);
     delete process.env.GAME_SUMMARY_MAX_TARGETS;
   });
 });

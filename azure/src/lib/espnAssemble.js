@@ -190,6 +190,24 @@ function selectTargetGames(scheduleEvents, now = new Date()) {
   return targets;
 }
 
+/**
+ * Backfill selection: every game that has kicked off and is marked completed. No trailing window
+ * or cap — used to land whole past seasons.
+ *
+ * @param {any[]} scheduleEvents - Raw (deduplicated) schedule events
+ * @param {Date} now
+ * @returns {string[]}
+ */
+function selectCompletedGames(scheduleEvents, now = new Date()) {
+  return scheduleEvents
+    .filter((event) => {
+      const competition = event.competitions?.[0];
+      const gameDate = new Date(competition?.date || event.date);
+      return competition?.status?.type?.completed === true && gameDate <= now;
+    })
+    .map((event) => event.id);
+}
+
 module.exports = {
   BLOB_PREFIXES,
   dedupeSchedulesByGameId,
@@ -200,4 +218,5 @@ module.exports = {
   trimScheduleEvent,
   buildGameSummaryLanding,
   selectTargetGames,
+  selectCompletedGames,
 };

@@ -1,12 +1,7 @@
 const { app } = require('@azure/functions');
-const { ESPN_SITES, getCurrentSeasonYear, fetchWithRetry, mapWithConcurrency } = require('../lib/espnClient');
-const {
-  BLOB_PREFIXES,
-  dedupeSchedulesByGameId,
-  trimScheduleEvent,
-  buildGameSummaryLanding,
-  selectTargetGames,
-} = require('../lib/espnAssemble');
+const { getCurrentSeasonYear } = require('../lib/espnClient');
+const { BLOB_PREFIXES, selectTargetGames } = require('../lib/espnAssemble');
+const { fetchTeamIds, fetchSeasonSchedules, fetchGameSummaries } = require('../lib/espnFetch');
 const { uploadJsonBlob, getStorageInfo } = require('../lib/gameDataStorage');
 
 app.timer('fetchGameData', {
@@ -30,46 +25,27 @@ app.timer('fetchGameData', {
       context.log('[FETCH_START] Fetching game data (schedules, game summaries)');
       context.log(`[SEASON_RESOLVED] Season year: ${seasonYear}`);
 
-      // Fetch team list
-      context.log('[API_CALL] GET teams (for schedule IDs)');
-      const teamsUrl = `${ESPN_SITES.SITE_BASE}/teams?limit=100`;
-      const teamsResp = await fetchWithRetry(teamsUrl, {}, context);
-      const teamsData = await teamsResp.json();
-      const teamIds = (teamsData.sports?.[0]?.leagues?.[0]?.teams || []).map((t) => t.team?.id).filter(Boolean);
-
+      const teamIds = await fetchTeamIds(context);
       context.log(`[DATA_PARSED] Found ${teamIds.length} teams for schedule fetch`);
 
-      // Fetch schedules for all teams in parallel
-      const concurrencyLimit = parseInt(process.env.ESPN_FETCH_CONCURRENCY || '5', 10);
-      const scheduleResults = await mapWithConcurrency(teamIds, concurrencyLimit, async (teamId) => {
-        try {
-          const scheduleUrl = `${ESPN_SITES.SITE_BASE}/teams/${teamId}/schedule?season=${seasonYear}`;
-          const scheduleResp = await fetchWithRetry(scheduleUrl, {}, context);
-          const scheduleData = await scheduleResp.json();
-          const events = (scheduleData.events || []).map(trimScheduleEvent);
+      // Regular season + playoffs; each game appears in both teams' schedules and is deduped
+      const { events: deduplicatedSchedules, failures: scheduleFailureList } = await fetchSeasonSchedules(
+        teamIds,
+        seasonYear,
+        context
+      );
 
-          return { teamId, events, error: null };
-        } catch (error) {
-          return { teamId, events: [], error: error.message };
-        }
-      });
-
-      // Aggregate schedules and track failures
-      const allSchedules = [];
-      let scheduleFailures = 0;
-
-      for (const result of scheduleResults) {
-        if (result.error) {
-          summary.failures.push({ dataset: 'schedules', teamId: result.teamId, error: result.error });
-          scheduleFailures++;
-          context.log(`[ITEM_ERROR] Schedule fetch failed for team ${result.teamId}: ${result.error}`);
-        } else {
-          allSchedules.push(...result.events);
-        }
+      for (const failure of scheduleFailureList) {
+        summary.failures.push({ dataset: 'schedules', ...failure });
+        context.log(
+          `[ITEM_ERROR] Schedule fetch failed for team ${failure.teamId} seasontype ${failure.seasonType}: ${failure.error}`
+        );
       }
 
-      const deduplicatedSchedules = dedupeSchedulesByGameId([allSchedules]);
-      const scheduleStatus = scheduleFailures === teamIds.length ? 'failed' : scheduleFailures > 0 ? 'partial' : 'success';
+      const scheduleRequests = teamIds.length * 2;
+      const scheduleFailures = scheduleFailureList.length;
+      const scheduleStatus =
+        scheduleFailures === scheduleRequests ? 'failed' : scheduleFailures > 0 ? 'partial' : 'success';
 
       context.log(`[DATA_PARSED] Schedules: ${deduplicatedSchedules.length} unique games after deduping`);
 
@@ -87,32 +63,16 @@ app.timer('fetchGameData', {
       const targetGameIds = selectTargetGames(deduplicatedSchedules);
       context.log(`[TARGET_GAMES] Selected ${targetGameIds.length} games for summary fetch`);
 
-      // Fetch game summaries in parallel
-      const summaryResults = await mapWithConcurrency(targetGameIds, concurrencyLimit, async (gameId) => {
-        try {
-          const summaryUrl = `${ESPN_SITES.SITE_BASE}/summary?event=${gameId}`;
-          const summaryResp = await fetchWithRetry(summaryUrl, {}, context);
-          const summaryData = await summaryResp.json();
+      const { landings: gameSummariesPayload, failures: summaryFailureList } = await fetchGameSummaries(
+        targetGameIds,
+        context
+      );
 
-          return { gameId, landing: buildGameSummaryLanding(summaryData, gameId), error: null };
-        } catch (error) {
-          return { gameId, landing: null, error: error.message };
-        }
-      });
-
-      // Aggregate game summaries, track failures
-      const gameSummariesPayload = [];
-      let gameSummaryFailures = 0;
-
-      for (const result of summaryResults) {
-        if (result.error) {
-          summary.failures.push({ dataset: 'game_summaries', gameId: result.gameId, error: result.error });
-          gameSummaryFailures++;
-          context.log(`[ITEM_ERROR] Summary fetch failed for game ${result.gameId}: ${result.error}`);
-        } else {
-          gameSummariesPayload.push(result.landing);
-        }
+      for (const failure of summaryFailureList) {
+        summary.failures.push({ dataset: 'game_summaries', ...failure });
+        context.log(`[ITEM_ERROR] Summary fetch failed for game ${failure.gameId}: ${failure.error}`);
       }
+      const gameSummaryFailures = summaryFailureList.length;
 
       const summariesStatus =
         targetGameIds.length > 0 && gameSummaryFailures === targetGameIds.length

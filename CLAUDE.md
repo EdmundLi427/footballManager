@@ -29,14 +29,16 @@ All data lands in one container (`alsource`) as JSON arrays at `{prefix}/{YYYY-M
 **Dev**:
 - `npm start` – runs `func start` (local Azure Functions runtime)
 - `npm test` – `node --test` on `test/lib/*.test.js` (fixture-based, no network)
+- `node scripts/backfill-espn.js [--seasons 2023,2024,2025,2026] [--dry-run]` – one-off historical backfill (default: last 3 completed seasons + current). Lands schedules, every completed game's summary (chunked 100/blob) and regular+playoff standings under the normal `espn/` prefixes, so the Databricks ingest notebooks pick them up unchanged. No rosters (ESPN's site roster endpoint is empty for past seasons). Storage connection from env or `local.settings.json`; safe to re-run (keyed merge).
 - `node scripts/refresh-espn-fixtures.js` – re-records small real ESPN responses into `test/fixture/espn/` and the matching landing payloads into `databricks/tests/fixtures/espn/` (the cross-module contract; a diff = ESPN schema drift). Also records `databricks/tests/fixtures/fantasypros/injury_news.json` using `FANTASY_PRO_API_KEY` from env or `local.settings.json` (never logged; skipped if absent)
 
 **Key files**:
 - `src/functions/newsTrigger.js` – FantasyPros injury news, every 6h → `injury/`
 - `src/functions/teamsPlayersTrigger.js` – daily 06:15 UTC → `espn/teams/`, `espn/players/` (core v3 athlete index, paginated; includes retired players)
 - `src/functions/standingsRostersTrigger.js` – daily 08:30 UTC → `espn/standings/` (one record: `{season, children}`), `espn/rosters/` (one record per team, 32 calls, bounded concurrency, partial-failure tolerant)
-- `src/functions/gameDataTrigger.js` – every 6h → `espn/schedules/` (raw events from 32 team schedules, deduped by id) and `espn/game_summaries/` (one `{game_id, header, gameInfo, boxscore.teams}` per targeted game)
-- `src/lib/espnAssemble.js` – pure landing builders: `BLOB_PREFIXES`, `buildTeamsLanding`, `buildPlayersLanding`, `buildRosterLanding`, `buildStandingsLanding`, `trimScheduleEvent`, `buildGameSummaryLanding`, `dedupeSchedulesByGameId`, `selectTargetGames` (games that kicked off and are in progress or completed within the trailing window; uses `status.type.completed`)
+- `src/functions/gameDataTrigger.js` – every 6h → `espn/schedules/` (raw events from 32 team schedules × seasontype 2 and 3, deduped by id — without `seasontype` ESPN returns only the regular season) and `espn/game_summaries/` (one `{game_id, header, gameInfo, boxscore.teams}` per targeted game)
+- `src/lib/espnAssemble.js` – pure landing builders: `BLOB_PREFIXES`, `buildTeamsLanding`, `buildPlayersLanding`, `buildRosterLanding`, `buildStandingsLanding`, `trimScheduleEvent`, `buildGameSummaryLanding`, `dedupeSchedulesByGameId`, `selectTargetGames` (games that kicked off and are in progress or completed within the trailing window; uses `status.type.completed`), `selectCompletedGames` (backfill: all completed games, uncapped)
+- `src/lib/espnFetch.js` – fetch+assemble shared by triggers and backfill: `fetchTeamIds`, `fetchSeasonSchedules` (regular + playoffs), `fetchGameSummaries`, `fetchStandings`; item failures are collected, not thrown
 - `src/lib/espnClient.js` – `getCurrentSeasonYear()`, `fetchWithRetry()`, `mapWithConcurrency()`, `paginateEspnEndpoint()`
 - `src/lib/gameDataStorage.js` – `buildBlobName()`, `uploadJsonBlob()`, `getStorageInfo()`
 - `local.settings.json` – local dev env (gitignored; contains real API credentials — never commit)
