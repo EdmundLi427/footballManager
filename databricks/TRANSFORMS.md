@@ -51,9 +51,11 @@ ESPN API ──Azure Functions──▶ alsource/espn/<dataset>/YYYY-MM-DD/<ts>.
 | `espn/players/` | `fetchTeamsPlayers` (daily 06:15) | `core/v3/.../seasons/{y}/athletes` (paginated) | `nfl.players` |
 | `espn/standings/` | `fetchStandingsRosters` (daily 08:30) | `apis/v2/.../standings?season={y}` | `nfl.standings` |
 | `espn/rosters/` | `fetchStandingsRosters` (daily 08:30) | `site/v2/.../teams/{id}/roster?season={y}` ×32 | `nfl.rosters` |
-| `espn/schedules/` | `fetchGameData` (every 6h) | `site/v2/.../teams/{id}/schedule?season={y}` ×32, deduped by event id | `nfl.schedules` |
+| `espn/schedules/` | `fetchGameData` (every 6h) | `site/v2/.../teams/{id}/schedule?season={y}&seasontype={2,3}` ×32 ×2, deduped by event id (without `seasontype` ESPN returns only the regular season) | `nfl.schedules` |
 | `espn/game_summaries/` | `fetchGameData` (every 6h) | `site/v2/.../summary?event={id}` for games that kicked off and are in progress or finished ≤3 days ago (max 50) | `nfl.games`, `nfl.game_team_stats` |
 | `injury/` | `newsTrigger` (every 6h) | FantasyPros `public/v2/json/nfl/news?category=injury` (stored unchanged) | `nfl.injury_news` |
+
+**Historical backfill:** `azure/scripts/backfill-espn.js` lands whole past seasons (schedules, a summary for every completed game, regular + playoff standings) under the same prefixes in the same format, so the same notebooks ingest it. Seasons 2023–2026 were backfilled on 2026-10-06. Those blobs are permanent, so after a table reset you only need to re-run the notebooks, not the script. Rosters can't be backfilled (ESPN's site roster endpoint is empty for past seasons).
 
 ---
 

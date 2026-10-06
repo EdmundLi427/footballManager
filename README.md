@@ -70,72 +70,29 @@ See each module's `README.md` for setup, development, and architecture details.
 
 ## Data Schema
 
-All tables are stored in Delta Lake under the catalog `football_manager`, schema `nfl`. Tables are populated by Databricks notebooks in `databricks/notebooks/` that read from Azure Blob Storage (`alsource`).
+All tables are stored in Delta Lake under schema `nfl` (in the workspace's default catalog). Tables are populated by Databricks notebooks in `databricks/notebooks/` that read from Azure Blob Storage (`alsource`).
 
-### Entity-Relationship Diagram
+**Column-by-column reference (keys, types, parsing rules, audit columns): [`databricks/TRANSFORMS.md`](databricks/TRANSFORMS.md).** The source of truth is `databricks/lib/schemas.py`.
 
-```
-                    ┌─────────────┐
-                    │   teams     │
-                    │ ┌─────────┐ │
-                    │ │ id (PK) │─┼──┐
-                    │ │ uid     │ │  │
-                    │ │ slug    │ │  │
-                    │ └─────────┘ │  │
-                    └─────────────┘  │
-                           ▲         │
-                           │         │
-                  ┌────────┴────┬────┴────────┐
-                  │             │             │
-              ┌───▼───┐    ┌────▼────┐   ┌───▼────────┐
-              │rosters│    │standings│   │schedules   │
-              ├───────┤    ├─────────┤   ├────────────┤
-              │teamId │◄──│teamId   │   │homeTeamId  │
-              │playerId   │season  │   │awayTeamId  │
-              │position   │conference   │week        │
-              │playerName │stats   │   │date        │
-              └───────┘    └─────────┘   └────────────┘
-                  ▲              │             │
-                  │              │             │
-            ┌─────▴─┐      ┌─────▼─────────────▼─────┐
-            │players│      │game_team_stats   games   │
-            ├───────┤      ├────────────────────────┤
-            │id (PK)│      │gameId             id(PK)│
-            │name   │      │teamId             date  │
-            │height │      │teamName           venue │
-            │weight │      │stats              attendance│
-            └───────┘      └────────────────────────┘
-```
-
-### Table Reference
-
-| Table | Primary Key | Source | Frequency | Purpose |
-|-------|-------------|--------|-----------|---------|
-| **teams** | `id` | ESPN API (azure/teamsPlayersTrigger) | Daily @ 06:15 UTC | Team metadata (name, colors, abbreviations) |
-| **players** | `id` | ESPN API (azure/teamsPlayersTrigger) | Daily @ 06:15 UTC | Player bio data (name, DOB, height, weight) |
-| **standings** | `teamId`, `season` | ESPN API (azure/standingsRostersTrigger) | Daily @ 08:30 UTC | Team standings (wins, losses, points, etc.) — stats are dynamic |
-| **rosters** | `teamId`, `playerId` | ESPN API (azure/standingsRostersTrigger) | Daily @ 08:30 UTC | Team rosters with player positions and jersey numbers |
-| **schedules** | `id` (gameId) | ESPN API (azure/gameDataTrigger) | Every 6 hours | Game schedule (date, week, score) — refreshed for active games |
-| **games** | `id` (gameId) | ESPN API (azure/gameDataTrigger) | Every 6 hours | Game details (venue, city, attendance) — only for targeted games |
-| **game_team_stats** | `gameId`, `teamId` | ESPN API (azure/gameDataTrigger) | Every 6 hours | Per-team boxscore stats (passing yards, rushing, penalties, etc.) — dynamic |
-
-### Common Fields
-
-All tables include lineage tracking:
-
-| Field | Type | Meaning |
-|-------|------|---------|
-| `snapshot_at` | TIMESTAMP | File modification time when data was fetched |
-| `source_file` | STRING | Azure Blob path to the source JSON file |
-| `ingested_at` | TIMESTAMP | When the record was inserted into Delta Lake |
+| Table | One row per |
+|-------|-------------|
+| `teams` | team |
+| `players` | athlete in ESPN's season index (includes inactive/retired) |
+| `rosters` | (season, team, player) |
+| `standings` | (season, season type, team) |
+| `schedules` | game |
+| `games` | game (venue, attendance, final score) |
+| `game_team_stats` | (game, team) box score |
+| `injury_news` | FantasyPros injury news item |
 
 ### Data Refresh Strategy
 
 - **Season-level data** (teams, players): Daily 06:15 UTC
 - **Weekly-level data** (standings, rosters): Daily 08:30 UTC
 - **Game-level data** (schedules, game summaries): Every 6 hours
-  - Schedules: deduplicated across team APIs
+  - Schedules: regular season and playoffs, deduplicated across team APIs
   - Game summaries (→ `nfl.games` + `nfl.game_team_stats`): only fetched for games that have kicked off and are in progress or completed within the trailing window (default 3 days)
+- **Historical seasons** (2023 onward) were landed once by `azure/scripts/backfill-espn.js`; those blobs are permanent and re-ingest after any table reset
 - Transforms from raw ESPN JSON to `nfl.*` tables are documented in [`databricks/TRANSFORMS.md`](databricks/TRANSFORMS.md)
 
 ### Ingestion Pipeline
