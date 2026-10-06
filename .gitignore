@@ -25,7 +25,8 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-.venv/
+.venv
+.venv.nosync/
 venv/
 ENV/
 env/
@@ -63,6 +64,7 @@ local.settings.json
 etl/data/raw/*.csv
 etl/data/clean/*.csv
 data-service/tables.json
+data-service/src/data_service/tables.json
 
 # Lock files (keep uv.lock, exclude node_modules lock variants)
 # uv.lock is committed; node package-lock is in .gitignore above

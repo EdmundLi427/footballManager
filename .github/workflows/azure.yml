@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - "azure/**"
+      - "databricks/tests/fixtures/espn/**"
   pull_request:
     branches: [main]
     paths:
       - "azure/**"
+      - "databricks/tests/fixtures/espn/**"
 
 jobs:
   test:
