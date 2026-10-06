@@ -16,9 +16,6 @@ Tools:
 
 from __future__ import annotations
 
-from dotenv import load_dotenv
-
-load_dotenv()
 import json
 import os
 import re
@@ -26,8 +23,16 @@ import threading
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
+
+# The caller's .env (e.g. webapp/.env) first, then data-service/.env for storage credentials;
+# load_dotenv never overrides a variable that is already set.
+load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
 import duckdb
-from deltalake import DeltaTable
+import pyarrow as pa
+from deltalake import DeltaTable, QueryBuilder
 
 CONFIG_PATH = Path(
     os.environ.get("DELTA_TABLES_CONFIG", Path(__file__).with_name("tables.json"))
@@ -48,6 +53,26 @@ except ImportError:
 mcp = _Server("delta-lake") if _Server else None
 
 
+def _snapshot(name: str, dt: DeltaTable) -> pa.Table:
+    """Materializes the table's current version in memory.
+
+    Goes through delta-rs's DataFusion reader (QueryBuilder) rather than
+    ``to_pyarrow_dataset()``, which rejects tables with deletion vectors, a reader
+    feature Databricks enables by default on tables it MERGEs into. DataFusion
+    returns string/binary *view* types, which DuckDB's Arrow filter pushdown
+    can't compare, so they are cast back to plain string/binary.
+    """
+    reader = QueryBuilder().register(name, dt).execute(f'SELECT * FROM "{name}"')
+    table = pa.table(reader.read_all())
+    plain = {pa.string_view(): pa.string(), pa.binary_view(): pa.binary()}
+    return table.cast(
+        pa.schema(
+            [f.with_type(plain.get(f.type, f.type)) for f in table.schema],
+            metadata=table.schema.metadata,
+        )
+    )
+
+
 class Lake:
     """Holds the DeltaTable handles and the locked-down DuckDB connection."""
 
@@ -65,7 +90,8 @@ class Lake:
         self.storage_options: dict[str, str] = cfg.get("storage_options", {})
 
         # Parse Azure connection string from env if present
-        conn_str = os.environ.get("AZURE_STORAGE_CONNECTION_STRING", "")
+        # Connection strings never contain whitespace; strip any line wrapping from a pasted value.
+        conn_str = "".join(os.environ.get("AZURE_STORAGE_CONNECTION_STRING", "").split())
         if conn_str:
             parts = {
                 p.split("=", 1)[0]: p.split("=", 1)[1] for p in conn_str.split(";")
@@ -81,7 +107,7 @@ class Lake:
         for name, path in self.paths.items():
             dt = DeltaTable(path, storage_options=self.storage_options)
             self.tables[name] = dt
-            self.con.register(name, dt.to_pyarrow_dataset())
+            self.con.register(name, _snapshot(name, dt))
         # From here on, SQL cannot read/write files, attach DBs, or change settings.
         self.con.execute("SET enable_external_access = false")
         self.con.execute("SET lock_configuration = true")
@@ -100,7 +126,7 @@ class Lake:
             dt.update_incremental()
             if dt.version() != before:
                 self.con.unregister(name)
-                self.con.register(name, dt.to_pyarrow_dataset())
+                self.con.register(name, _snapshot(name, dt))
 
 
 _lake: Lake | None = None

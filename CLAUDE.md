@@ -65,20 +65,18 @@ All data lands in one container (`alsource`) as JSON arrays at `{prefix}/{YYYY-M
 
 **Dev**:
 - `uv run --directory data-service --with mcp[cli] mcp dev src/data_service/server.py` – inspect MCP tools and test locally
-- `uv run --directory data-service pytest` – **currently broken**: `pytest` is not an installed dependency anywhere in the workspace (`uv.lock` has neither `pytest` nor `ruff`), so this fails with "Failed to spawn: `pytest`". CI (`data-service.yml`) runs this same command and would fail too.
+- `uv run --directory data-service pytest` – unit tests (`tests/test_unit.py`); `-m integration` tests skip unless they find `tables.json` + `AZURE_STORAGE_CONNECTION_STRING`. Requires the venv synced with `uv sync --all-packages --all-groups` (pytest/ruff live in the root `dev` group).
 - Credentials via env vars or `storage_options` in `tables.json`. The real local `.env` here only sets `AZURE_STORAGE_CONNECTION_STRING` (parsed manually in `server.py`'s `Lake.__init__`); the README also documents `AWS_PROFILE`/`AZURE_STORAGE_ACCOUNT_NAME`/`GOOGLE_APPLICATION_CREDENTIALS` but `server.py` doesn't read those explicitly — they'd only take effect via delta-rs's own default credential chain.
 
 **Key files**:
 - `src/data_service/server.py` – MCP server implementation; exposes `list_tables`, `describe_table`, `table_history`, `query` tools
 - `pyproject.toml` – workspace member; deps: `mcp[cli]`, `deltalake>=1.0`, `duckdb>=1.1`, `pyarrow`, `python-dotenv`, `pytz`
-- `tables.example.json` – template; copy to `tables.json` (gitignored) and list your Delta tables (name → path). Note the server's actual default `CONFIG_PATH` resolves to `src/data_service/tables.json` (next to `server.py`), not a repo-root-relative path.
-- `tests/test_server.py` – imports via `from server import ...` (bare, pre-reorg style) instead of `from data_service.server import ...`; breaks under normal pytest collection, but is runnable standalone via `python test_server.py` (has an `if __name__ == "__main__"` guard)
-- `tests/test_tables.py` – has no `__main__` guard and executes top-level script code on import, including reading a `tests/tables.json` that doesn't exist; would error immediately even if pytest were installed
+- `tables.example.json` – template. The real config is `src/data_service/tables.json` (default `CONFIG_PATH`, next to `server.py`; gitignored; override with `DELTA_TABLES_CONFIG`) listing the 8 `nfl` tables' `abfss://aldestination@footballmanagerli...` paths (`silver/<table>`, `injury/injury_news`).
 - `README.md` – full setup & configuration guide (note: some credential env vars it documents aren't actually consumed by the code — see above)
 
 **Architecture**: Installed as a workspace member; can be imported in-process (e.g., by `webapp/`) as `from data_service.server import list_tables, describe_table, table_history, query`.
 
-**Convention**: Queries always see latest committed Delta version; partitions and column filters pushed down to DuckDB automatically.
+**Convention**: Queries always see latest committed Delta version. Each table is materialized in memory via deltalake's `QueryBuilder` (`_snapshot()` in `server.py`), **not** `to_pyarrow_dataset()` — Databricks MERGE enables deletion vectors, which `to_pyarrow_dataset()` rejects; view types (`string_view`) are cast to plain types for DuckDB. `.env` loading: caller's `.env` first, then `data-service/.env`; whitespace is stripped from `AZURE_STORAGE_CONNECTION_STRING`.
 
 ## Module: etl/ (Data Cleaning & Ingestion)
 
@@ -123,8 +121,8 @@ If data isn't showing up in `data-service`, check whether these notebooks have r
 **Purpose**: A web application providing a chat interface for querying NFL data. Uses Claude's API with tool calling to access the Delta Lake data service.
 
 **Dev**:
-- `uv run --directory webapp python app.py` – run the Flask server (http://localhost:5000)
-- `uv run --directory webapp pytest` – **currently broken for the same reason as data-service**: `pytest` isn't installed in the workspace. (Unlike `data-service/`'s tests, `webapp/tests/test_app.py` itself is a legitimate, correctly-written 2-test smoke test — it would pass once pytest is actually installed.)
+- `uv run --directory webapp python app.py` – run the Flask server; open **http://127.0.0.1:5000** (on macOS, `localhost:5000` can hit AirPlay Receiver and return 403 — use 127.0.0.1 or set `FLASK_PORT`)
+- `uv run --directory webapp pytest` – 2 smoke tests
 - `python webapp/chatbot.py` – CLI mode for testing the chatbot directly (interactive REPL)
 
 **Key files**:
@@ -144,10 +142,10 @@ If data isn't showing up in `data-service`, check whether these notebooks have r
 
 These are real gaps in the repo today, not intended behavior — call them out rather than assuming `pytest`/`ruff` work:
 
-- Neither `ruff` nor `pytest` is declared as a dependency anywhere in the workspace (`uv.lock`, any `pyproject.toml`). `uv run --directory data-service pytest` and `uv run --directory webapp pytest` both fail with "Failed to spawn: `pytest`" until someone adds them (e.g. as a `[dependency-groups] dev` entry).
+- `pytest`/`ruff` are in the root `[dependency-groups] dev`; a plain `uv sync` or `uv sync --all-packages` installs only the default group and **uninstalls** `shared` (pandas, requests) and `databricks` (pyspark). Use `uv sync --all-packages --all-groups`.
+- The repo lives in iCloud-synced `~/Documents`: the venv is `.venv.nosync/` (iCloud skips `*.nosync`) with a `.venv` symlink. Inside iCloud, `.pth` files got the macOS hidden flag (Python 3.13+ ignores hidden `.pth`, breaking the editable `data_service` import) and `* 2` conflict copies corrupted pandas. If recreating: `rm -rf .venv .venv.nosync && UV_PROJECT_ENVIRONMENT=.venv.nosync uv sync --all-packages --all-groups && ln -s .venv.nosync .venv`.
 - CI (`.github/workflows/data-service.yml`, `webapp.yml`) runs `uv run ruff format --check`, `uv run ruff check`, and `uv run pytest` — all of these currently fail in CI for the same reason.
 - `.github/workflows/etl.yml` runs `python etl/tests/test_clean.py` on every `etl/**` change — this is a live ~10-20 minute ESPN API scrape, not a fast validation step (see `etl/` section above).
-- `data-service/tests/test_server.py` and `test_tables.py` have import/path bugs (see `data-service/` section) that would break even once pytest is installed.
 - No `ruff.toml` or `[tool.ruff]` config exists anywhere, so there's no defined formatting standard to enforce yet. Don't assume a `ruff format` post-edit hook is configured for this repo — no hook exists in this repo's `.claude/settings.local.json` (only a permissions allowlist is defined there).
 
 ## Testing
@@ -155,8 +153,8 @@ These are real gaps in the repo today, not intended behavior — call them out r
 Per-module commands (see "Known issues" above for what currently doesn't work):
 - **azure/**: `cd azure && npm test` (landing builder + contract tests)
 - **databricks/**: `uv run pytest databricks/tests` (Spark tests need Java 17)
-- **data-service/**: `uv run --directory data-service pytest` (currently fails — pytest not installed)
+- **data-service/**: `uv run --directory data-service pytest`
 - **etl/**: `python etl/tests/test_clean.py` (currently a live ESPN scraper, not a validator)
-- **webapp/**: `uv run --directory webapp pytest` (currently fails — pytest not installed; the test file itself is correct)
+- **webapp/**: `uv run --directory webapp pytest`
 
 Or via CI: `.github/workflows/` per service (same caveats apply).
