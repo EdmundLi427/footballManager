@@ -1,0 +1,25 @@
+# Tier 2: Open-ended reasoning questions
+# These are graded on reasoning rubric, not a single gold answer
+# Each question gets a frozen "gold evidence table" (SQL-derived facts)
+# An LLM judge scores 5 rubric items per answer: 0/1 each
+# Frozen snapshot: week 1 of 2025 regular season
+
+{"id": "r01", "category": "injury_replacement", "question": "Patrick Mahomes suffered a knee injury and is out for week 1. Which Chiefs player should see more playing time as a result? Explain why based on their recent usage.", "rubric_items": ["Same team (KC)?", "Same position as Mahomes (QB)?", "Cites targets/carries/snaps from recent data?", "Reasonable backup candidate (not starting RB or WR)?", "No invented snap counts or depth chart data?"], "gold_evidence_type": "usage"}
+
+{"id": "r02", "category": "defense_draft", "question": "Which defenses should I draft for week 1 of 2025? Give at least two and explain why based on their opponent's offense.", "rubric_items": ["Cites opponent's weakness (weak pass offense, high turnover rate)?", "Cites the defense's own recent production (sacks, turnovers, points allowed)?", "Uses data from 2024 or earlier (not future prediction)?", "Multiple defenses named (≥2)?", "No invented stats or betting lines?"], "gold_evidence_type": "defense_matchup"}
+
+{"id": "r03", "category": "run_game", "question": "Which teams are most likely to run the ball in week 1 of 2025? Name at least two and explain why (own tendencies + opponent).", "rubric_items": ["Team's own run share (rushing attempts vs total plays)?", "Opponent's run defense ranking (yards/attempts allowed)?", "Game script reasoning (point differential, likely game flow)?", "At least two teams named?", "No invented weather, lines, or snap counts?"], "gold_evidence_type": "run_tendency"}
+
+{"id": "r04", "category": "streaming_qb", "question": "Who should I start at QB in week 1 of 2025 if my starter is injured? Give one player and explain the matchup advantage.", "rubric_items": ["Player is a viable backup QB?", "Cites opponent's pass defense weakness?", "Uses actual stat (yards allowed, sacks allowed, INTs forced)?", "Sound reasoning (weak D justifies start)?", "No invented stats?"], "gold_evidence_type": "qb_matchup"}
+
+{"id": "r05", "category": "rb_committee", "question": "In a team's backfield with two RBs splitting carries, who should get more touches in week 1 based on recent usage patterns? Name one and explain.", "rubric_items": ["Names a real RB on a 2025 team?", "Cites recent carry/target share from player_game_stats?", "Opponent context (running situation)?", "Realistic choice (not a player with 1 carry per game)?", "No invented depth charts?"], "gold_evidence_type": "rb_usage"}
+
+{"id": "r06", "category": "fade_candidate", "question": "Which player should I avoid in week 1 of 2025 due to a bad matchup? Name one and explain the defensive matchup.", "rubric_items": ["Names a real player from 2025?", "Opponent defense has a strength (sacks, coverage, turnovers)?", "Strength aligns with player's weakness (bad OL vs rush, poor hands vs press coverage)?", "Cites actual defense stat?", "No invented analysis?"], "gold_evidence_type": "bad_matchup"}
+
+{"id": "r07", "category": "breakout_candidate", "question": "Which emerging player should I watch in week 1 of 2025? Someone with limited production so far but good matchup this week. Name one and explain.", "rubric_items": ["Player exists and is on a 2025 roster?", "Limited recent production (not a league leader)?", "Faces weak opponent defense?", "Cites defense weakness with real stat?", "No invented projections?"], "gold_evidence_type": "breakout_setup"}
+
+{"id": "r08", "category": "target_share", "question": "Which wide receiver will get the most targets in a specific week 1 game in 2025? Pick a game and name one WR, with reasoning.", "rubric_items": ["Names a real WR on a 2025 roster?", "Cites recent target share from player_game_stats?", "Opponent context (weak coverage, game script)?", "Realistic claim (player actually gets targets)?", "No invented snap counts?"], "gold_evidence_type": "wr_targets"}
+
+{"id": "r09", "category": "bye_fill", "question": "One team has a bye week in week 5 of 2025. Who should you pick up as a replacement starter at that position based on matchup? Name one and explain.", "rubric_items": ["Player exists on a 2025 roster?", "Does NOT have bye week 5?", "Cites good matchup in week 5 (weak opponent)?", "Uses actual defense stat?", "Reasonable starter-level candidate?"], "gold_evidence_type": "bye_fill"}
+
+{"id": "r10", "category": "bench_boost", "question": "Which team's entire offense has the best week 1 matchup in 2025 (facing weak overall defense)? Name the team and explain why they'll put up points.", "rubric_items": ["Real 2025 team named?", "Opponent defense has overall weakness (total yards allowed, points allowed)?", "Cites specific weakness relevant to team type?", "Multiple scoring opportunities mentioned (pass and rush potential)?", "No invented stats?"], "gold_evidence_type": "team_offense_matchup"}

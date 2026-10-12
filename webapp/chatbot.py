@@ -19,9 +19,9 @@ SYSTEM_PROMPT = """You are an NFL fantasy football assistant. You have read-only
 containing ESPN and FantasyPros injury news data.
 
 ## Available Data
-- **Tables**: teams, players, rosters, standings, schedules, games, team_stats, player_stats, injury_news
+- **Tables**: teams, players, rosters, standings, schedules, games, game_team_stats, player_game_stats, injury_news
 - **ESPN IDs**: all stored as STRING type, e.g., player_id = "1234567"
-- **Timestamps**: all in UTC; each table has a snapshot_at or created_at column
+- **Timestamps**: all in UTC; ESPN tables use _snapshot_at, injury_news uses created_at
 - **Data freshness**: always state the snapshot date; news can be 1-6 hours old
 
 ## How to Use Tools
@@ -33,13 +33,19 @@ containing ESPN and FantasyPros injury news data.
   - Returns: created_at, title, description, impact, player_id, team_id, link
   - Always cite the created_at date when mentioning news
 
-## Schema Facts
-- **players**: player_id (STRING), display_name, position, nfl_team_id, ...
-- **injury_news**: id (long), player_id (long), team_id (STRING), title, description, impact, created_at (UTC), ...
-  - Note: player_id is long; use title text or join to players table for names
+## Schema Facts & Critical Context
+- **players**: player_id (STRING), display_name, ...
+- **rosters**: season, team_id, player_id, position, ... (join here for player positions)
+- **injury_news**: id (long), player_id (long), team_id (STRING), title, description, created_at (UTC)
+  - Note: player_id in injury_news is long (not STRING); use title text or team_id for matching
   - Created dates are 6+ hours old; never treat as real-time
-- **standings, schedules, games**: keyed by season, week, etc.; always filter by season first
-- **player_stats, team_stats**: keyed by season/week; check the latest snapshot before answering
+- **standings**: season, season_type, team_id, wins, losses, points_for, point_differential, ...
+- **schedules, games**: season, season_type, week, ... (ALWAYS filter by season_type: 1=preseason, 2=regular, 3=playoffs)
+  - **CRITICAL**: week numbers repeat across season_type! Week 1 exists in preseason, regular, and playoffs. Always include season_type=2 for regular season.
+- **game_team_stats**: keyed by game_id (join games for season/week context), team_id, sacks, turnovers, total_yards, ...
+- **player_game_stats**: keyed by game_id, player_id, passing_tds, passing_yards, rushing_yards, receiving_yards, interceptions_thrown, def_sacks (DOUBLE, may be half-sacks), ...
+  - **NO position column**: join rosters to get position. **NO fantasy points**: compute scoring in SQL if needed.
+  - Column names: use `passing_tds` (not `pass_tds`), `interceptions_thrown` (not `interceptions_caught`), `def_sacks` (defensive, may be partial)
 
 ## Answer Rules
 1. State the data freshness: "As of [date]..." when answering
@@ -247,8 +253,10 @@ class Chatbot:
             else:
                 result = json.dumps({"error": f"Unknown tool: {tool_name}"})
             return result
-        except (ValueError, KeyError, RuntimeError) as e:
-            return json.dumps({"error": str(e)})
+        except Exception as e:
+            # Catch all exceptions (SQL errors, type errors, etc.) and return as error
+            error_msg = f"{type(e).__name__}: {str(e)[:150]}"
+            return json.dumps({"error": error_msg, "hint": "Try rephrasing your query or check table/column names"})
 
     def chat(self, user_message: str) -> str:
         """
@@ -262,10 +270,14 @@ class Chatbot:
         """
         self.add_user_message(user_message)
 
-        while True:
+        max_iterations = 8
+        iteration = 0
+
+        while iteration < max_iterations:
+            iteration += 1
             response = self.client.messages.create(
                 model=self.model,
-                max_tokens=2048,
+                max_tokens=4096,
                 system=SYSTEM_PROMPT,
                 tools=self.tools,
                 messages=self.messages,
@@ -287,11 +299,21 @@ class Chatbot:
                 for block in response.content:
                     if block.type == "tool_use":
                         tool_result = self._call_tool(block.name, block.input)
+
+                        # Check if result contains an error
+                        is_error = False
+                        try:
+                            result_obj = json.loads(tool_result)
+                            is_error = "error" in result_obj
+                        except (json.JSONDecodeError, TypeError):
+                            pass
+
                         tool_results.append(
                             {
                                 "type": "tool_result",
                                 "tool_use_id": block.id,
                                 "content": tool_result,
+                                "is_error": is_error,
                             }
                         )
 
@@ -308,6 +330,9 @@ class Chatbot:
             else:
                 # Unknown stop reason
                 break
+
+        if iteration >= max_iterations:
+            return "Chatbot exceeded maximum tool calls. Please try rephrasing your question."
 
         return "Chatbot encountered an unexpected state."
 

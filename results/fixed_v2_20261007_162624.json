@@ -1,0 +1,523 @@
+{
+  "label": "fixed_v2",
+  "timestamp": "20261007_162624",
+  "total": 28,
+  "correct": 14,
+  "accuracy": 50.0,
+  "by_category": {
+    "single_table_lookup": {
+      "correct": 3,
+      "total": 3
+    },
+    "standings": {
+      "correct": 4,
+      "total": 5
+    },
+    "game_results": {
+      "correct": 0,
+      "total": 4
+    },
+    "player_aggregate": {
+      "correct": 3,
+      "total": 5
+    },
+    "team_aggregate": {
+      "correct": 1,
+      "total": 3
+    },
+    "schema_trap": {
+      "correct": 1,
+      "total": 4
+    },
+    "injury_news": {
+      "correct": 0,
+      "total": 1
+    },
+    "refusal": {
+      "correct": 2,
+      "total": 3
+    }
+  },
+  "by_failure": {
+    "wrong_value": 13,
+    "bad_refusal": 1
+  },
+  "questions": [
+    {
+      "id": "t01",
+      "category": "single_table_lookup",
+      "question": "What is the abbreviation of the team with ESPN id '25'?",
+      "expected": "SF",
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "ESPN team ID '25' is **SF**, the San Francisco 49ers. This comes from the teams data as of Oct 7, 20",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "t02",
+      "category": "single_table_lookup",
+      "question": "What is the display name of the Kansas City Chiefs?",
+      "expected": "Kansas City Chiefs",
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "As of the Oct 7, 2026 teams snapshot (06:15 UTC), the Kansas City Chiefs' display name is **\"Kansas ",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "t03",
+      "category": "single_table_lookup",
+      "question": "What is the team abbreviation for ESPN team id '1'?",
+      "expected": "ATL",
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "The abbreviation for ESPN team ID '1' is **ATL**, the Atlanta Falcons. This comes from the teams sna",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "s01",
+      "category": "standings",
+      "question": "Which team had the most wins in the 2025 regular season (season_type=2)?",
+      "expected": "DEN",
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "No single team had the most wins in the 2025 regular season. Three teams tied at **14-3**, according",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "s02",
+      "category": "standings",
+      "question": "How many games did Denver win in the 2025 regular season?",
+      "expected": 14,
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "The Denver Broncos won **14 games** in the 2025 regular season and finished **14\u20133**.\n\nThis comes fr",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "s03",
+      "category": "standings",
+      "question": "What was Denver's point differential in 2025 regular season?",
+      "expected": 90,
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "In the 2025 regular season, the **Denver Broncos had a point differential of +90**. They went 14\u20133, ",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "s04",
+      "category": "standings",
+      "question": "Which team earned the #1 playoff seed in the AFC for 2025?",
+      "expected": "DEN",
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "The **Denver Broncos** were the AFC's #1 seed for 2025, at 14-3. This is from the standings snapshot",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "s05",
+      "category": "standings",
+      "question": "What was Kansas City's conference record in 2025 regular season?",
+      "expected": "3-9",
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "The Kansas City Chiefs went **3-9 against AFC opponents** in the 2025 regular season. This comes fro",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "g01",
+      "category": "game_results",
+      "question": "What was the home score in the first completed game of week 1 in 2025 regular season?",
+      "expected": 24,
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "In the first completed game of Week 1 of the 2025 regular season, the home team scored **24**. The P",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "g02",
+      "category": "game_results",
+      "question": "How many games were completed in week 1 of 2025 regular season?",
+      "expected": 16,
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "As of the latest snapshot (Oct 6, 2026 at 21:53 UTC), **all 16 games** in Week 1 of the 2025 regular",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "g03",
+      "category": "game_results",
+      "question": "What was the total points scored in the highest-scoring game of 2025 regular season?",
+      "expected": 89,
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "The highest-scoring game of the 2025 regular season had **89 total points**. The Chicago Bears won 4",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "g04",
+      "category": "game_results",
+      "question": "How many games had a difference of 10+ points in 2025 regular season?",
+      "expected": 124,
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "As of the latest games snapshot (Oct 6, 2026, 21:53 UTC), **124 of the 272 games** in the 2025 regul",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "p01",
+      "category": "player_aggregate",
+      "question": "Who threw the most passing yards in 2025 regular season (season_type=2)?",
+      "expected": "Matthew Stafford",
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "**Matthew Stafford had the most passing yards in the 2025 regular season, with 4,707 yards and 46 TD",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "p02",
+      "category": "player_aggregate",
+      "question": "How many passing touchdowns did the regular season passing leader throw?",
+      "expected": 46,
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "That depends on how you define \"passing leader.\" As of the Oct 7, 2026 snapshot (06:00 UTC), with 20",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "p03",
+      "category": "player_aggregate",
+      "question": "Who had the most receiving yards in 2025 regular season?",
+      "expected": "Jaxon Smith-Njigba",
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "**Jaxon Smith-Njigba led the 2025 regular season with 1,793 receiving yards** in 17 games. This is f",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "p04",
+      "category": "player_aggregate",
+      "question": "How many rushing yards did the rushing leader accumulate in 2025 regular season?",
+      "expected": 1621,
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "James Cook III led the 2025 regular season with **1,621 rushing yards** in 17 games. This is based o",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "p05",
+      "category": "player_aggregate",
+      "question": "Who caught the most passes in 2025 regular season?",
+      "expected": "Puka Nacua",
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "**Puka Nacua (Rams) caught the most passes in the 2025 regular season, with 129.** These totals come",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "ta01",
+      "category": "team_aggregate",
+      "question": "Which team had the most sacks in 2025 regular season?",
+      "expected": "LV",
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "**The Denver Broncos had the most sacks in the 2025 regular season, with 68.** This is based on the ",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "ta02",
+      "category": "team_aggregate",
+      "question": "Which team had the most turnovers in 2025 regular season?",
+      "expected": "MIN",
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "The **Minnesota Vikings** had the most turnovers in the 2025 regular season, with **30** over 17 gam",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "ta03",
+      "category": "team_aggregate",
+      "question": "How many total yards did Denver allow in 2025 regular season?",
+      "expected": 5974,
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "Denver allowed **4,730 total yards** in the 2025 regular season, based on data as of the Oct 6, 2026",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "trap01",
+      "category": "schema_trap",
+      "question": "How many passing touchdowns did the leader throw in preseason (season_type=1) of 2025?",
+      "expected": null,
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "I can't answer this because there's no 2025 preseason data. The games table has no preseason games (",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "trap02",
+      "category": "schema_trap",
+      "question": "How many interceptions did the leader THROW in 2025 regular season? (not catch)",
+      "expected": 17,
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "**Geno Smith threw the most interceptions in the 2025 regular season, with 17.** That total comes fr",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "trap03",
+      "category": "schema_trap",
+      "question": "How many total yards did Denver lose to sacks in 2025 regular season?",
+      "expected": 161,
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "Denver lost **124 yards to sacks** in the 2025 regular season. Its quarterbacks were sacked **23 tim",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "trap04",
+      "category": "schema_trap",
+      "question": "How many sacks did the sack leader accumulate in 2025 regular season? (may include half sacks)",
+      "expected": 23.0,
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "Myles Garrett led the league with **23.0 sacks** in the 2025 regular season (17 games). That total h",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "injury01",
+      "category": "injury_news",
+      "question": "Is there any injury news about Patrick Mahomes in the last 30 days?",
+      "expected": 0,
+      "correct": false,
+      "failure": "wrong_value",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "wrong_value",
+          "answer": "There's no injury news about Patrick Mahomes in the last 30 days. Nothing in the FantasyPros feed me",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "refuse01",
+      "category": "refusal",
+      "question": "What is the projected fantasy points for Patrick Mahomes next week?",
+      "expected": null,
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "I don't have projections, so I can't give you an official projected number for next week. Here's wha",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "refuse02",
+      "category": "refusal",
+      "question": "What is the snap count percentage for Travis Kelce in week 1 of 2025?",
+      "expected": null,
+      "correct": false,
+      "failure": "bad_refusal",
+      "verdicts": [
+        {
+          "correct": false,
+          "failure": "bad_refusal",
+          "answer": "I can't give you Travis Kelce's snap count percentage. My data doesn't track snap counts in any form",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    },
+    {
+      "id": "refuse03",
+      "category": "refusal",
+      "question": "Which players are unavailable next week due to injury?",
+      "expected": null,
+      "correct": true,
+      "failure": null,
+      "verdicts": [
+        {
+          "correct": true,
+          "failure": null,
+          "answer": "I don't have official injury designations for Week 5 yet. Those normally come out later in the week.",
+          "error": null,
+          "tool_calls": 0
+        }
+      ]
+    }
+  ]
+}
